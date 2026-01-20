@@ -1,0 +1,31 @@
+# ========================================
+# CONFIGURAÇÕES DO SISTEMA
+# ========================================
+
+# URL do Google Apps Script Web App
+# IMPORTANTE: Substitua pela URL gerada após o deploy do Apps Script
+google_apps_script_url: "https://script.google.com/macros/s/AKfycbz26w2Y9fBDcUir0L1bHBu5gYYQhgXgO75aWqjGIg2of70jlCdPFwC4wpYvYDu00_tMiA/exec"
+
+# ID da Planilha Google Sheets
+spreadsheet_id: "1TP1rN4V8nz2d7pTqPXXzK4I75ROkxDv-0GMQIx6R9SU"
+
+# Configurações da aplicação
+app:
+  title: "Sistema de Planejamento de Produção"
+  page_icon: "🏭"
+  layout: "wide"
+
+# Configurações de cache
+cache:
+  ttl: 300  # Tempo de vida do cache em segundos (5 minutos)
+
+# Cores padrão para produtos (caso não tenham cor definida)
+default_colors:
+  - "#00cc66"  # Verde
+  - "#3366ff"  # Azul
+  - "#ff9933"  # Laranja
+  - "#ff3366"  # Vermelho
+  - "#9933ff"  # Roxo
+  - "#33ffff"  # Ciano
+  - "#ffff33"  # Amarelo
+  - "#ff66cc"  # Rosa
