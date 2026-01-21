@@ -99,8 +99,7 @@ db_manager = init_manager()
 # SIDEBAR - CONTROLES
 # ========================================
 with st.sidebar:
-    st.image("https://via.placeholder.com/200x80/1f77b4/ffffff?text=PRODUÇÃO",
-             use_container_width=True)
+    st.markdown("### 🏭 Sistema de Produção")
 
     st.markdown("### ⚙️ Controles")
 

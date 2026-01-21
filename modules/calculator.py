@@ -6,6 +6,38 @@ from typing import Dict, List, Tuple
 import pandas as pd
 
 
+def formatar_data_br(data) -> str:
+    """
+    Formata data para padrão brasileiro DD/MM/AAAA
+
+    Args:
+        data: String ou objeto datetime
+
+    Returns:
+        Data formatada em DD/MM/AAAA
+    """
+    try:
+        if isinstance(data, str):
+            # Se já está no formato DD/MM/AAAA
+            if '/' in data and len(data.split('/')) == 3:
+                partes = data.split('/')
+                if len(partes[0]) <= 2:
+                    return data
+
+            # Se está no formato YYYY-MM-DD
+            if '-' in data:
+                data_obj = datetime.strptime(data, '%Y-%m-%d')
+                return data_obj.strftime('%d/%m/%Y')
+
+        elif isinstance(data, datetime):
+            return data.strftime('%d/%m/%Y')
+
+        return str(data)
+
+    except Exception:
+        return str(data)
+
+
 class ProductionCalculator:
     """Realiza cálculos de planejamento de produção"""
 
