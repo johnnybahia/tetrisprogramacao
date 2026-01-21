@@ -41,7 +41,7 @@ def load_css():
     """Carrega CSS personalizado"""
     css_file = Path(__file__).parent / 'assets' / 'style.css'
     if css_file.exists():
-        with open(css_file) as f:
+        with open(css_file, encoding='utf-8') as f:
             st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
 
     # CSS adicional inline
