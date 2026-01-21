@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Planejamento de Produção</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <h1 class="logo">🏭 Sistema de Produção</h1>
+            <div class="status-badge" id="statusBadge">
+                <span id="statusText">Conectando...</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container">
+            <button class="nav-btn active" data-page="cadastro">📝 Cadastro</button>
+            <button class="nav-btn" data-page="pedidos">📦 Pedidos</button>
+            <button class="nav-btn" data-page="otimizacao">🧠 Otimização</button>
+            <button class="nav-btn" data-page="planejamento">📊 Planejamento</button>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="container">
+            
+            <!-- PÁGINA: CADASTRO -->
+            <div class="page active" id="page-cadastro">
+                <h2 class="page-title">Cadastrar Produto</h2>
+                
+                <div class="card">
+                    <form id="formCadastro">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>Máquina *</label>
+                                <select id="inputMaquina" required>
+                                    <option value="">Carregando...</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Referência *</label>
+                                <input type="text" id="inputReferencia" required>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Tempo Produção (min) *</label>
+                                <input type="number" id="inputTempoProducao" min="0" step="0.5" required>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Tempo Montagem (min) *</label>
+                                <input type="number" id="inputTempoMontagem" min="0" step="0.5" required>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Cor</label>
+                                <input type="color" id="inputCor" value="#667eea">
+                            </div>
+
+                            <div class="form-group">
+                                <label>Montagem 2x2</label>
+                                <select id="inputMontagem2x2">
+                                    <option value="Não">Não</option>
+                                    <option value="Sim">Sim</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary">💾 Salvar Produto</button>
+                    </form>
+                </div>
+
+                <!-- Lista de produtos -->
+                <div class="card" style="margin-top: 2rem;">
+                    <h3>Produtos Cadastrados</h3>
+                    <div id="listaProdutos">Selecione uma máquina para ver produtos</div>
+                </div>
+            </div>
+
+            <!-- PÁGINA: PEDIDOS -->
+            <div class="page" id="page-pedidos">
+                <h2 class="page-title">Lançar Pedidos</h2>
+                
+                <div class="card">
+                    <form id="formPedido">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>Cliente *</label>
+                                <input type="text" id="inputCliente" required>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Ordem de Compra *</label>
+                                <input type="text" id="inputOrdem" required>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Data Entrega (DD/MM/AAAA) *</label>
+                                <input type="text" id="inputDataEntrega" placeholder="25/03/2025" required>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Máquina *</label>
+                                <select id="inputMaquinaPedido" required>
+                                    <option value="">Selecione...</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Produto *</label>
+                                <select id="inputProduto" required>
+                                    <option value="">Selecione máquina primeiro</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Bocas *</label>
+                                <input type="number" id="inputBocas" min="1" value="1" required>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Quantidade *</label>
+                                <input type="number" id="inputQuantidade" min="1" value="1" required>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary">➕ Adicionar Pedido</button>
+                    </form>
+                </div>
+
+                <!-- Lista de pedidos temporários -->
+                <div class="card" style="margin-top: 2rem;" id="cardPedidosTemp">
+                    <h3>Pedidos Adicionados</h3>
+                    <div id="listaPedidos"></div>
+                    <div style="margin-top: 1rem; display: flex; gap: 1rem;">
+                        <button class="btn btn-success" onclick="gerarPlanejamento()">📊 Gerar Planejamento</button>
+                        <button class="btn btn-secondary" onclick="limparPedidos()">🗑️ Limpar Lista</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PÁGINA: OTIMIZAÇÃO -->
+            <div class="page" id="page-otimizacao">
+                <h2 class="page-title">Otimização Inteligente</h2>
+                
+                <div class="hero-card">
+                    <h2>🎯 Otimizador Inteligente</h2>
+                    <p>Analisa urgência, distribui bocas e sugere melhor sequência</p>
+                </div>
+
+                <div class="stats-grid" id="statsOtimizacao">
+                    <div class="stat-card">
+                        <div class="stat-value" id="statPedidos">0</div>
+                        <div class="stat-label">Pedidos</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="statPecas">0</div>
+                        <div class="stat-label">Peças</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="statMaquinas">0</div>
+                        <div class="stat-label">Máquinas</div>
+                    </div>
+                </div>
+
+                <div style="text-align: center; margin: 3rem 0;">
+                    <button class="btn btn-optimize" onclick="otimizarDistribuicao()">
+                        🚀 OTIMIZAR DISTRIBUIÇÃO
+                    </button>
+                </div>
+
+                <div id="resultadoOtimizacao"></div>
+            </div>
+
+            <!-- PÁGINA: PLANEJAMENTO -->
+            <div class="page" id="page-planejamento">
+                <h2 class="page-title">Visualização do Planejamento</h2>
+                <div id="resultadoPlanejamento">
+                    <p class="info-text">Gere um planejamento primeiro</p>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <p>🏭 Sistema de Planejamento de Produção v3.0 | Desenvolvido com ❤️</p>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
