@@ -1,0 +1,26 @@
+# ========================================
+# DEPENDÊNCIAS - FastAPI + Frontend
+# ========================================
+
+# Framework Web
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+
+# CORS e WebSockets
+python-multipart>=0.0.6
+
+# Manipulação de dados
+pandas>=2.0.0
+numpy>=1.24.0
+
+# Requisições HTTP
+requests>=2.31.0
+
+# Configurações
+pyyaml>=6.0
+
+# Datas
+python-dateutil>=2.8.0
+
+# Validação
+pydantic>=2.0.0
