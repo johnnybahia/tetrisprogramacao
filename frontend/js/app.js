@@ -219,25 +219,48 @@ function setupForms() {
 // PEDIDOS
 // ========================================
 
-function adicionarPedido() {
-    const pedido = {
-        cliente: document.getElementById('inputCliente').value,
-        ordem_compra: document.getElementById('inputOrdem').value,
-        data_entrega: document.getElementById('inputDataEntrega').value,
-        maquina: document.getElementById('inputMaquinaPedido').value,
-        bocas: parseInt(document.getElementById('inputBocas').value),
-        produto: document.getElementById('inputProduto').value,
-        quantidade: parseInt(document.getElementById('inputQuantidade').value)
-    };
+async function adicionarPedido() {
+    const maquina = document.getElementById('inputMaquinaPedido').value;
+    const produtoRef = document.getElementById('inputProduto').value;
 
-    pedidosTemporarios.push(pedido);
+    // Busca dados completos do produto
+    try {
+        const response = await fetch(API_URL + '/produtos/' + maquina);
+        const data = await response.json();
 
-    atualizarListaPedidos();
-    atualizarStatsOtimizacao();
+        const produtoInfo = data.produtos.find(p => p.REFERENCIA === produtoRef);
 
-    document.getElementById('formPedido').reset();
+        if (!produtoInfo) {
+            alert('Produto não encontrado');
+            return;
+        }
 
-    alert('✅ Pedido adicionado! Total: ' + pedidosTemporarios.length);
+        const pedido = {
+            cliente: document.getElementById('inputCliente').value,
+            ordem_compra: document.getElementById('inputOrdem').value,
+            data_entrega: document.getElementById('inputDataEntrega').value,
+            maquina: maquina,
+            bocas: parseInt(document.getElementById('inputBocas').value),
+            produto: produtoRef,
+            quantidade: parseInt(document.getElementById('inputQuantidade').value),
+            tempo_producao: parseFloat(produtoInfo['TEMPO DE PRODUÇÃO'] || 0),
+            tempo_montagem: parseFloat(produtoInfo['TEMPO DE MONTAGEM'] || 0),
+            montagem_2x2: produtoInfo['MONTAGEM 2X2'] === 'Sim',
+            tempo_montagem_2x2: parseFloat(produtoInfo['TEMPO MONTAGEM 2X2'] || 0)
+        };
+
+        pedidosTemporarios.push(pedido);
+
+        atualizarListaPedidos();
+        atualizarStatsOtimizacao();
+
+        document.getElementById('formPedido').reset();
+
+        alert('✅ Pedido adicionado! Total: ' + pedidosTemporarios.length);
+    } catch (error) {
+        console.error('Erro ao adicionar pedido:', error);
+        alert('Erro ao adicionar pedido');
+    }
 }
 
 function atualizarListaPedidos() {
@@ -432,3 +455,665 @@ function mostrarResultadoOtimizacao(resultado) {
 
     container.innerHTML = html;
 }
+
+// ========================================
+// CALENDÁRIO DE TRABALHO
+// ========================================
+
+// Carrega resumo do calendário
+async function carregarResumoCalendario() {
+    try {
+        const response = await fetch(API_URL + '/calendario/summary');
+        const data = await response.json();
+
+        // Atualiza stats
+        document.getElementById('totalHolidays').textContent = data.total_holidays || 0;
+        document.getElementById('workSaturday').textContent = data.weekend_config.work_saturday_by_default ? 'Sim' : 'Não';
+        document.getElementById('workSunday').textContent = data.weekend_config.work_sunday_by_default ? 'Sim' : 'Não';
+
+        // Atualiza checkboxes
+        document.getElementById('checkWorkSaturday').checked = data.weekend_config.work_saturday_by_default;
+        document.getElementById('checkWorkSunday').checked = data.weekend_config.work_sunday_by_default;
+
+        // Atualiza lista de feriados
+        await carregarListaFeriados();
+    } catch (error) {
+        console.error('Erro ao carregar resumo:', error);
+        alert('Erro ao carregar resumo do calendário');
+    }
+}
+
+// Salva configuração de fins de semana
+async function salvarConfiguracaoFimDeSemana() {
+    const workSaturday = document.getElementById('checkWorkSaturday').checked;
+    const workSunday = document.getElementById('checkWorkSunday').checked;
+
+    try {
+        const response = await fetch(API_URL + '/calendario/fins-de-semana/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                work_saturday: workSaturday,
+                work_sunday: workSunday
+            })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            alert('✅ Configuração salva com sucesso!');
+            carregarResumoCalendario();
+        }
+    } catch (error) {
+        console.error('Erro ao salvar configuração:', error);
+        alert('Erro ao salvar configuração');
+    }
+}
+
+// Adiciona feriados
+async function adicionarFeriados() {
+    const input = document.getElementById('inputFeriados');
+    const text = input.value.trim();
+
+    if (!text) {
+        alert('Digite as datas dos feriados');
+        return;
+    }
+
+    // Separa por linhas
+    const dates = text.split('\n')
+        .map(d => d.trim())
+        .filter(d => d);
+
+    try {
+        const response = await fetch(API_URL + '/calendario/feriados', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ dates })
+        });
+
+        const result = await response.json();
+
+        let message = `✅ ${result.added.length} feriado(s) adicionado(s)`;
+        if (result.invalid.length > 0) {
+            message += `\n⚠️ ${result.invalid.length} data(s) inválida(s): ${result.invalid.join(', ')}`;
+        }
+
+        alert(message);
+        input.value = '';
+        carregarResumoCalendario();
+    } catch (error) {
+        console.error('Erro ao adicionar feriados:', error);
+        alert('Erro ao adicionar feriados');
+    }
+}
+
+// Carrega lista de feriados
+async function carregarListaFeriados() {
+    try {
+        const response = await fetch(API_URL + '/calendario/feriados');
+        const data = await response.json();
+
+        const container = document.getElementById('listaFeriados');
+
+        if (!data.holidays || data.holidays.length === 0) {
+            container.innerHTML = '<p class="info-text">Nenhum feriado cadastrado</p>';
+            return;
+        }
+
+        let html = '<div class="holiday-list">';
+        data.holidays.forEach(date => {
+            html += `
+                <div class="holiday-item">
+                    <span class="holiday-date">${date}</span>
+                    <button class="holiday-remove" onclick="removerFeriado('${date}')">Remover</button>
+                </div>
+            `;
+        });
+        html += '</div>';
+
+        container.innerHTML = html;
+    } catch (error) {
+        console.error('Erro ao carregar feriados:', error);
+    }
+}
+
+// Remove feriado
+async function removerFeriado(date) {
+    if (!confirm(`Deseja remover o feriado ${date}?`)) return;
+
+    try {
+        const response = await fetch(API_URL + '/calendario/feriados', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ dates: [date] })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            alert('✅ Feriado removido!');
+            carregarResumoCalendario();
+        }
+    } catch (error) {
+        console.error('Erro ao remover feriado:', error);
+        alert('Erro ao remover feriado');
+    }
+}
+
+// Carrega fins de semana de um ano
+async function carregarFinsDeSemana() {
+    const year = parseInt(document.getElementById('inputAno').value);
+
+    try {
+        const response = await fetch(API_URL + `/calendario/fins-de-semana/${year}`);
+        const data = await response.json();
+
+        const container = document.getElementById('finsDeSemanaContainer');
+
+        let html = '<div class="weekend-grid">';
+
+        // Sábados
+        html += '<div class="weekend-column">';
+        html += `<h4>Sábados de ${year}</h4>`;
+        html += '<div class="weekend-items">';
+        data.saturdays.forEach(item => {
+            html += `
+                <div class="weekend-item">
+                    <input type="checkbox" id="sat_${item.date.replace(/\//g, '_')}"
+                           ${item.working ? 'checked' : ''}>
+                    <label for="sat_${item.date.replace(/\//g, '_')}">${item.date}</label>
+                </div>
+            `;
+        });
+        html += '</div></div>';
+
+        // Domingos
+        html += '<div class="weekend-column">';
+        html += `<h4>Domingos de ${year}</h4>`;
+        html += '<div class="weekend-items">';
+        data.sundays.forEach(item => {
+            html += `
+                <div class="weekend-item">
+                    <input type="checkbox" id="sun_${item.date.replace(/\//g, '_')}"
+                           ${item.working ? 'checked' : ''}>
+                    <label for="sun_${item.date.replace(/\//g, '_')}">${item.date}</label>
+                </div>
+            `;
+        });
+        html += '</div></div>';
+
+        html += '</div>';
+
+        container.innerHTML = html;
+        document.getElementById('btnSalvarFinsDeSemana').style.display = 'block';
+
+        // Guarda os dados para salvar depois
+        window.weekendData = data;
+    } catch (error) {
+        console.error('Erro ao carregar fins de semana:', error);
+        alert('Erro ao carregar fins de semana');
+    }
+}
+
+// Salva seleção de fins de semana
+async function salvarFinsDeSemana() {
+    if (!window.weekendData) return;
+
+    const saturdays = [];
+    const sundays = [];
+
+    // Coleta sábados selecionados
+    window.weekendData.saturdays.forEach(item => {
+        const checkbox = document.getElementById(`sat_${item.date.replace(/\//g, '_')}`);
+        if (checkbox && checkbox.checked) {
+            saturdays.push(item.date);
+        }
+    });
+
+    // Coleta domingos selecionados
+    window.weekendData.sundays.forEach(item => {
+        const checkbox = document.getElementById(`sun_${item.date.replace(/\//g, '_')}`);
+        if (checkbox && checkbox.checked) {
+            sundays.push(item.date);
+        }
+    });
+
+    try {
+        const response = await fetch(API_URL + '/calendario/fins-de-semana/datas', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ saturdays, sundays })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            alert('✅ Seleção salva com sucesso!');
+        }
+    } catch (error) {
+        console.error('Erro ao salvar fins de semana:', error);
+        alert('Erro ao salvar seleção');
+    }
+}
+
+// Limpa calendário
+async function limparCalendario() {
+    if (!confirm('Deseja limpar TODAS as configurações do calendário?')) return;
+
+    try {
+        const response = await fetch(API_URL + '/calendario/limpar', {
+            method: 'POST'
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            alert('✅ Calendário limpo!');
+            carregarResumoCalendario();
+            document.getElementById('finsDeSemanaContainer').innerHTML = '';
+            document.getElementById('btnSalvarFinsDeSemana').style.display = 'none';
+        }
+    } catch (error) {
+        console.error('Erro ao limpar calendário:', error);
+        alert('Erro ao limpar calendário');
+    }
+}
+
+// ========================================
+// PLANEJAMENTO DINÂMICO
+// ========================================
+
+let planejamentoAtual = null;
+
+// Gera planejamento dinâmico
+async function gerarPlanejamentoDinamico() {
+    if (pedidosTemporarios.length === 0) {
+        alert('Adicione pedidos primeiro!');
+        return;
+    }
+
+    const dataInicio = document.getElementById('inputDataInicioPlan').value || null;
+
+    // Prepara pedidos com IDs únicos
+    const orders = pedidosTemporarios.map((p, idx) => ({
+        id: `order_${Date.now()}_${idx}`,
+        cliente: p.cliente,
+        ordem_compra: p.ordem_compra,
+        data_entrega: p.data_entrega,
+        maquina: p.maquina,
+        bocas: p.bocas,
+        produto: p.produto,
+        quantidade: p.quantidade,
+        tempo_producao: p.tempo_producao || 0,
+        tempo_montagem: p.tempo_montagem || 0,
+        montagem_2x2: p.montagem_2x2 || false,
+        tempo_montagem_2x2: p.tempo_montagem_2x2 || 0
+    }));
+
+    try {
+        const response = await fetch(API_URL + '/planejamento/dinamico/criar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                orders: orders,
+                start_date: dataInicio
+            })
+        });
+
+        const plan = await response.json();
+
+        if (plan.success) {
+            planejamentoAtual = plan;
+            mostrarPlanejamentoDinamico(plan);
+            alert('✅ Planejamento gerado com sucesso!');
+        } else {
+            alert('Erro ao gerar planejamento: ' + (plan.error || 'Erro desconhecido'));
+        }
+    } catch (error) {
+        console.error('Erro ao gerar planejamento:', error);
+        alert('Erro ao gerar planejamento');
+    }
+}
+
+// Mostra planejamento dinâmico
+function mostrarPlanejamentoDinamico(plan) {
+    // Mostra botões
+    document.getElementById('btnSalvarPlano').style.display = 'inline-block';
+    document.getElementById('btnCarregarPlano').style.display = 'inline-block';
+
+    // Mostra card de resumo
+    document.getElementById('cardResumoPlano').style.display = 'block';
+
+    // Atualiza stats
+    document.getElementById('statTotalPedidos').textContent = plan.summary.total_orders;
+    document.getElementById('statTotalHoras').textContent = plan.summary.total_hours.toFixed(1) + 'h';
+    document.getElementById('statCriticos').textContent = plan.summary.critical_orders;
+    document.getElementById('statAtenção').textContent = plan.summary.warning_orders;
+
+    // Mostra alertas
+    mostrarAlertas(plan.alerts);
+
+    // Mostra planejamento por máquina
+    mostrarPlanejamentoPorMaquina(plan.machine_plans);
+
+    // Esconde mensagem de info
+    document.getElementById('resultadoPlanejamento').innerHTML = '';
+}
+
+// Mostra alertas
+function mostrarAlertas(alerts) {
+    const container = document.getElementById('alertasPlano');
+
+    if (!alerts || alerts.length === 0) {
+        container.innerHTML = '';
+        return;
+    }
+
+    let html = '<div class="card"><h3>⚠️ Alertas</h3><div class="alerts-container">';
+
+    alerts.forEach(alert => {
+        const alertClass = alert.tipo === 'CRITICO' ? 'critical' : 'warning';
+        const icon = alert.tipo === 'CRITICO' ? '🔴' : '⚠️';
+
+        html += `
+            <div class="alert ${alertClass}">
+                <div class="alert-icon">${icon}</div>
+                <div class="alert-content">
+                    <div class="alert-title">${alert.cliente} - ${alert.produto}</div>
+                    <div class="alert-message">${alert.mensagem}</div>
+                    <div class="alert-message"><small>Entrega: ${alert.data_entrega} | Término: ${alert.data_fim}</small></div>
+                </div>
+            </div>
+        `;
+    });
+
+    html += '</div></div>';
+    container.innerHTML = html;
+}
+
+// Mostra planejamento por máquina
+function mostrarPlanejamentoPorMaquina(machinePlans) {
+    const container = document.getElementById('planejamentoPorMaquina');
+
+    let html = '';
+
+    for (const [machine, plan] of Object.entries(machinePlans)) {
+        html += `
+            <div class="card machine-plan">
+                <div class="machine-header">
+                    <div class="machine-name">🔧 ${plan.maquina}</div>
+                    <div class="machine-availability">
+                        ${plan.availability_hours}h/dia | ${plan.total_orders} pedidos | ${plan.total_hours.toFixed(1)}h total
+                    </div>
+                </div>
+                <div class="orders-timeline" id="timeline_${machine.replace(/\s+/g, '_')}">
+                    ${renderOrdersList(plan.orders, machine)}
+                </div>
+            </div>
+        `;
+    }
+
+    container.innerHTML = html;
+
+    // Adiciona drag and drop
+    setupDragAndDrop();
+}
+
+// Renderiza lista de pedidos
+function renderOrdersList(orders, machine) {
+    if (!orders || orders.length === 0) {
+        return '<div class="empty-state"><div class="empty-state-icon">📭</div><div class="empty-state-text">Nenhum pedido para esta máquina</div></div>';
+    }
+
+    let html = '';
+
+    orders.forEach((order, index) => {
+        // Determina badge
+        let badgeClass = 'ok';
+        let badgeText = 'OK';
+
+        if (order.data_fim && order.data_entrega) {
+            try {
+                const [dF, mF, yF] = order.data_fim.split('/');
+                const [dE, mE, yE] = order.data_entrega.split('/');
+                const dataFim = new Date(yF, mF - 1, dF);
+                const dataEntrega = new Date(yE, mE - 1, dE);
+
+                if (dataFim > dataEntrega) {
+                    badgeClass = 'critical';
+                    badgeText = 'ATRASADO';
+                } else {
+                    const diff = Math.floor((dataEntrega - dataFim) / (1000 * 60 * 60 * 24));
+                    if (diff <= 3) {
+                        badgeClass = 'warning';
+                        badgeText = 'ATENÇÃO';
+                    }
+                }
+            } catch (e) {
+                console.error('Erro ao comparar datas:', e);
+            }
+        }
+
+        html += `
+            <div class="order-item" draggable="true"
+                 data-order-id="${order.id}"
+                 data-machine="${machine}"
+                 data-position="${index}">
+                <div class="drag-handle"></div>
+                <div class="order-header">
+                    <div class="order-info">
+                        <div class="order-title">${order.cliente} - ${order.produto}</div>
+                        <div class="order-subtitle">OC: ${order.ordem_compra} | ${order.quantidade} peças | ${order.bocas} bocas</div>
+                    </div>
+                    <div class="order-badge ${badgeClass}">${badgeText}</div>
+                </div>
+                <div class="order-details">
+                    <div class="order-detail">
+                        <div class="detail-label">Início</div>
+                        <div class="detail-value highlight">${order.data_inicio || 'N/A'}</div>
+                    </div>
+                    <div class="order-detail">
+                        <div class="detail-label">Término</div>
+                        <div class="detail-value highlight">${order.data_fim || 'N/A'}</div>
+                    </div>
+                    <div class="order-detail">
+                        <div class="detail-label">Entrega</div>
+                        <div class="detail-value">${order.data_entrega}</div>
+                    </div>
+                    <div class="order-detail">
+                        <div class="detail-label">Dias Úteis</div>
+                        <div class="detail-value">${order.dias_uteis || 0}</div>
+                    </div>
+                    <div class="order-detail">
+                        <div class="detail-label">Horas Total</div>
+                        <div class="detail-value">${order.tempo_total_horas.toFixed(1)}h</div>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
+    return html;
+}
+
+// Configura drag and drop
+function setupDragAndDrop() {
+    const orderItems = document.querySelectorAll('.order-item');
+
+    orderItems.forEach(item => {
+        item.addEventListener('dragstart', handleDragStart);
+        item.addEventListener('dragend', handleDragEnd);
+        item.addEventListener('dragover', handleDragOver);
+        item.addEventListener('drop', handleDrop);
+        item.addEventListener('dragenter', handleDragEnter);
+        item.addEventListener('dragleave', handleDragLeave);
+    });
+}
+
+let draggedElement = null;
+
+function handleDragStart(e) {
+    draggedElement = this;
+    this.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+}
+
+function handleDragEnd(e) {
+    this.classList.remove('dragging');
+    document.querySelectorAll('.order-item').forEach(item => {
+        item.classList.remove('drag-over');
+    });
+}
+
+function handleDragOver(e) {
+    if (e.preventDefault) {
+        e.preventDefault();
+    }
+    e.dataTransfer.dropEffect = 'move';
+    return false;
+}
+
+function handleDragEnter(e) {
+    if (this !== draggedElement) {
+        this.classList.add('drag-over');
+    }
+}
+
+function handleDragLeave(e) {
+    this.classList.remove('drag-over');
+}
+
+async function handleDrop(e) {
+    if (e.stopPropagation) {
+        e.stopPropagation();
+    }
+
+    this.classList.remove('drag-over');
+
+    if (draggedElement !== this) {
+        const fromMachine = draggedElement.dataset.machine;
+        const toMachine = this.dataset.machine;
+
+        // Só permite reordenar na mesma máquina
+        if (fromMachine !== toMachine) {
+            alert('Só é possível reordenar pedidos da mesma máquina');
+            return false;
+        }
+
+        const fromPosition = parseInt(draggedElement.dataset.position);
+        const toPosition = parseInt(this.dataset.position);
+        const orderId = draggedElement.dataset.orderId;
+
+        // Recalcula planejamento
+        await reordenarPedido(orderId, fromPosition, toPosition, fromMachine);
+    }
+
+    return false;
+}
+
+// Reordena pedido e recalcula
+async function reordenarPedido(orderId, fromPosition, toPosition, machine) {
+    if (!planejamentoAtual) return;
+
+    try {
+        const response = await fetch(API_URL + '/planejamento/dinamico/mover', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                order_id: orderId,
+                from_position: fromPosition,
+                to_position: toPosition,
+                machine: machine,
+                all_orders: planejamentoAtual.all_orders,
+                start_date: planejamentoAtual.start_date
+            })
+        });
+
+        const newPlan = await response.json();
+
+        if (newPlan.success) {
+            planejamentoAtual = newPlan;
+            mostrarPlanejamentoDinamico(newPlan);
+        }
+    } catch (error) {
+        console.error('Erro ao reordenar:', error);
+        alert('Erro ao reordenar pedido');
+    }
+}
+
+// Salva plano
+async function salvarPlano() {
+    if (!planejamentoAtual) {
+        alert('Nenhum plano para salvar');
+        return;
+    }
+
+    const planName = prompt('Nome do plano:');
+    if (!planName) return;
+
+    try {
+        const response = await fetch(API_URL + '/planejamento/dinamico/salvar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                plan_name: planName,
+                plan: planejamentoAtual
+            })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            alert('✅ Plano salvo com sucesso!');
+        }
+    } catch (error) {
+        console.error('Erro ao salvar plano:', error);
+        alert('Erro ao salvar plano');
+    }
+}
+
+// Carrega plano
+async function carregarPlano() {
+    try {
+        // Lista planos salvos
+        const response = await fetch(API_URL + '/planejamento/dinamico/listar');
+        const data = await response.json();
+
+        if (!data.plans || data.plans.length === 0) {
+            alert('Nenhum plano salvo');
+            return;
+        }
+
+        // Mostra opções
+        let options = 'Selecione um plano:\n\n';
+        data.plans.forEach((p, idx) => {
+            options += `${idx + 1}. ${p.name} (${p.total_orders} pedidos, ${p.total_hours}h)\n`;
+        });
+
+        const choice = prompt(options + '\nDigite o número do plano:');
+        if (!choice) return;
+
+        const index = parseInt(choice) - 1;
+        if (index < 0 || index >= data.plans.length) {
+            alert('Opção inválida');
+            return;
+        }
+
+        const planName = data.plans[index].name;
+
+        // Carrega o plano
+        const loadResponse = await fetch(API_URL + `/planejamento/dinamico/carregar/${planName}`);
+        const plan = await loadResponse.json();
+
+        planejamentoAtual = plan;
+        mostrarPlanejamentoDinamico(plan);
+        alert('✅ Plano carregado!');
+    } catch (error) {
+        console.error('Erro ao carregar plano:', error);
+        alert('Erro ao carregar plano');
+    }
+}
+
+// Inicializa calendário quando a página for mostrada
+document.addEventListener('DOMContentLoaded', () => {
+    // Carrega resumo do calendário ao carregar a página
+    setTimeout(() => {
+        carregarResumoCalendario();
+    }, 1000);
+});

@@ -356,6 +356,380 @@ table tr:hover {
     to { transform: rotate(360deg); }
 }
 
+/* ========================================
+   NOVOS ESTILOS - CALENDÁRIO E PLANEJAMENTO
+   ======================================== */
+
+/* Checkbox Groups */
+.checkbox-group {
+    display: flex;
+    align-items: center;
+}
+
+.checkbox-group label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    font-weight: 600;
+    gap: 0.5rem;
+}
+
+.checkbox-group input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    accent-color: var(--primary);
+}
+
+/* Textarea */
+textarea {
+    width: 100%;
+    padding: 0.75rem;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.95rem;
+    resize: vertical;
+    transition: border 0.3s;
+}
+
+textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
+/* Lista de Feriados */
+.holiday-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.holiday-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    background: var(--light);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+}
+
+.holiday-date {
+    font-weight: 600;
+    color: var(--dark);
+}
+
+.holiday-remove {
+    padding: 0.4rem 0.8rem;
+    background: var(--danger);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 600;
+    transition: opacity 0.3s;
+}
+
+.holiday-remove:hover {
+    opacity: 0.8;
+}
+
+/* Fins de Semana Grid */
+.weekend-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 2rem;
+}
+
+.weekend-column h4 {
+    margin-bottom: 1rem;
+    color: var(--primary);
+    font-size: 1.1rem;
+}
+
+.weekend-items {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-height: 400px;
+    overflow-y: auto;
+    padding: 0.5rem;
+    background: var(--light);
+    border-radius: 8px;
+}
+
+.weekend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    background: white;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+}
+
+.weekend-item input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: var(--success);
+}
+
+.weekend-item label {
+    cursor: pointer;
+    font-size: 0.9rem;
+    flex: 1;
+}
+
+/* Alertas do Planejamento */
+.alerts-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.alert {
+    padding: 1rem;
+    border-radius: 8px;
+    border-left: 4px solid;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+}
+
+.alert-icon {
+    font-size: 1.5rem;
+}
+
+.alert-content {
+    flex: 1;
+}
+
+.alert-title {
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+}
+
+.alert-message {
+    font-size: 0.9rem;
+    opacity: 0.9;
+}
+
+.alert.critical {
+    background: #fef2f2;
+    border-color: var(--danger);
+    color: #991b1b;
+}
+
+.alert.warning {
+    background: #fffbeb;
+    border-color: var(--warning);
+    color: #92400e;
+}
+
+.alert.info {
+    background: #eff6ff;
+    border-color: var(--primary);
+    color: #1e3a8a;
+}
+
+/* Planejamento por Máquina */
+.machine-plan {
+    margin-bottom: 2rem;
+}
+
+.machine-header {
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    color: white;
+    padding: 1.5rem;
+    border-radius: 10px 10px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.machine-name {
+    font-size: 1.3rem;
+    font-weight: 700;
+}
+
+.machine-availability {
+    font-size: 0.9rem;
+    opacity: 0.9;
+}
+
+.orders-timeline {
+    background: white;
+    border: 2px solid var(--border);
+    border-top: none;
+    border-radius: 0 0 10px 10px;
+    padding: 1.5rem;
+}
+
+/* Order Items (Drag and Drop) */
+.order-item {
+    background: white;
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+    cursor: move;
+    transition: all 0.3s;
+    position: relative;
+}
+
+.order-item:hover {
+    border-color: var(--primary);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+    transform: translateY(-2px);
+}
+
+.order-item.dragging {
+    opacity: 0.5;
+    transform: scale(0.98);
+}
+
+.order-item.drag-over {
+    border-color: var(--success);
+    background: rgba(16, 185, 129, 0.05);
+}
+
+.order-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+}
+
+.order-info {
+    flex: 1;
+}
+
+.order-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--dark);
+    margin-bottom: 0.25rem;
+}
+
+.order-subtitle {
+    font-size: 0.9rem;
+    color: #64748b;
+}
+
+.order-badge {
+    padding: 0.4rem 0.8rem;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.order-badge.critical {
+    background: var(--danger);
+    color: white;
+}
+
+.order-badge.warning {
+    background: var(--warning);
+    color: white;
+}
+
+.order-badge.ok {
+    background: var(--success);
+    color: white;
+}
+
+.order-details {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+}
+
+.order-detail {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.detail-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    color: #94a3b8;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+.detail-value {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--dark);
+}
+
+.detail-value.highlight {
+    color: var(--primary);
+    font-size: 1.1rem;
+}
+
+/* Drag Handle */
+.drag-handle {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 30px;
+    background: linear-gradient(to right, rgba(102, 126, 234, 0.1), transparent);
+    border-radius: 10px 0 0 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: move;
+}
+
+.drag-handle::before {
+    content: '⋮⋮';
+    color: var(--primary);
+    font-size: 1.2rem;
+    font-weight: 700;
+}
+
+/* Stats Cards Variations */
+.stat-card.critical .stat-value {
+    color: var(--danger);
+}
+
+.stat-card.warning .stat-value {
+    color: var(--warning);
+}
+
+.stat-card.ok .stat-value {
+    color: var(--success);
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 3rem;
+    color: #94a3b8;
+}
+
+.empty-state-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+}
+
+.empty-state-text {
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .form-grid {

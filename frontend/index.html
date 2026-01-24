@@ -24,8 +24,9 @@
         <div class="container">
             <button class="nav-btn active" data-page="cadastro">📝 Cadastro</button>
             <button class="nav-btn" data-page="pedidos">📦 Pedidos</button>
-            <button class="nav-btn" data-page="otimizacao">🧠 Otimização</button>
+            <button class="nav-btn" data-page="calendario">📅 Calendário</button>
             <button class="nav-btn" data-page="planejamento">📊 Planejamento</button>
+            <button class="nav-btn" data-page="otimizacao">🧠 Otimização</button>
         </div>
     </nav>
 
@@ -149,6 +150,103 @@
                 </div>
             </div>
 
+            <!-- PÁGINA: CALENDÁRIO -->
+            <div class="page" id="page-calendario">
+                <h2 class="page-title">Calendário de Trabalho</h2>
+
+                <!-- Resumo do Calendário -->
+                <div class="card">
+                    <h3>📊 Resumo do Calendário</h3>
+                    <div class="stats-grid" id="calendarSummary">
+                        <div class="stat-card">
+                            <div class="stat-value" id="totalHolidays">0</div>
+                            <div class="stat-label">Feriados Cadastrados</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="workSaturday">Não</div>
+                            <div class="stat-label">Trabalha Sábado</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="workSunday">Não</div>
+                            <div class="stat-label">Trabalha Domingo</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Configuração de Fins de Semana -->
+                <div class="card" style="margin-top: 2rem;">
+                    <h3>📆 Configuração de Fins de Semana</h3>
+                    <p style="margin-bottom: 1rem;">Defina se trabalha aos sábados e domingos por padrão:</p>
+
+                    <div class="form-grid">
+                        <div class="form-group checkbox-group">
+                            <label>
+                                <input type="checkbox" id="checkWorkSaturday">
+                                <span>Trabalha aos Sábados</span>
+                            </label>
+                        </div>
+
+                        <div class="form-group checkbox-group">
+                            <label>
+                                <input type="checkbox" id="checkWorkSunday">
+                                <span>Trabalha aos Domingos</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <button class="btn btn-primary" onclick="salvarConfiguracaoFimDeSemana()">💾 Salvar Configuração</button>
+                </div>
+
+                <!-- Adicionar Feriados -->
+                <div class="card" style="margin-top: 2rem;">
+                    <h3>🎉 Adicionar Feriados</h3>
+                    <p style="margin-bottom: 1rem;">Adicione datas de feriados (não haverá produção):</p>
+
+                    <div class="form-group">
+                        <label>Adicionar Feriados (um por linha no formato DD/MM/AAAA)</label>
+                        <textarea id="inputFeriados" rows="5" placeholder="25/12/2025&#10;01/01/2026&#10;07/09/2026"></textarea>
+                        <small>Exemplo: 25/12/2025 (Natal), 01/01/2026 (Ano Novo)</small>
+                    </div>
+
+                    <div style="display: flex; gap: 1rem;">
+                        <button class="btn btn-success" onclick="adicionarFeriados()">➕ Adicionar Feriados</button>
+                    </div>
+                </div>
+
+                <!-- Lista de Feriados Cadastrados -->
+                <div class="card" style="margin-top: 2rem;">
+                    <h3>📋 Feriados Cadastrados</h3>
+                    <div id="listaFeriados">Nenhum feriado cadastrado</div>
+                </div>
+
+                <!-- Sábados e Domingos do Ano -->
+                <div class="card" style="margin-top: 2rem;">
+                    <h3>📅 Fins de Semana do Ano</h3>
+                    <p style="margin-bottom: 1rem;">Marque os sábados e domingos específicos em que haverá trabalho:</p>
+
+                    <div class="form-group">
+                        <label>Ano</label>
+                        <input type="number" id="inputAno" value="2025" min="2020" max="2050">
+                        <button class="btn btn-secondary" onclick="carregarFinsDeSemana()" style="margin-top: 0.5rem;">🔍 Carregar Fins de Semana</button>
+                    </div>
+
+                    <div id="finsDeSemanaContainer" style="margin-top: 1rem;">
+                        <!-- Será preenchido dinamicamente -->
+                    </div>
+
+                    <button class="btn btn-primary" onclick="salvarFinsDeSemana()" style="margin-top: 1rem; display: none;" id="btnSalvarFinsDeSemana">💾 Salvar Seleção</button>
+                </div>
+
+                <!-- Ações do Calendário -->
+                <div class="card" style="margin-top: 2rem;">
+                    <h3>🔧 Ações</h3>
+                    <div style="display: flex; gap: 1rem;">
+                        <button class="btn btn-secondary" onclick="carregarResumoCalendario()">🔄 Atualizar Resumo</button>
+                        <button class="btn btn-danger" onclick="limparCalendario()">🗑️ Limpar Calendário</button>
+                    </div>
+                </div>
+            </div>
+
             <!-- PÁGINA: OTIMIZAÇÃO -->
             <div class="page" id="page-otimizacao">
                 <h2 class="page-title">Otimização Inteligente</h2>
@@ -184,9 +282,61 @@
 
             <!-- PÁGINA: PLANEJAMENTO -->
             <div class="page" id="page-planejamento">
-                <h2 class="page-title">Visualização do Planejamento</h2>
+                <h2 class="page-title">Planejamento Dinâmico de Produção</h2>
+
+                <!-- Controles de Geração -->
+                <div class="card">
+                    <h3>⚙️ Configuração do Planejamento</h3>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Data de Início (DD/MM/AAAA)</label>
+                            <input type="text" id="inputDataInicioPlan" placeholder="25/01/2025">
+                            <small>Deixe em branco para iniciar hoje</small>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+                        <button class="btn btn-success" onclick="gerarPlanejamentoDinamico()">📊 Gerar Planejamento Dinâmico</button>
+                        <button class="btn btn-primary" onclick="salvarPlano()" style="display: none;" id="btnSalvarPlano">💾 Salvar Plano</button>
+                        <button class="btn btn-secondary" onclick="carregarPlano()" style="display: none;" id="btnCarregarPlano">📂 Carregar Plano</button>
+                    </div>
+                </div>
+
+                <!-- Resumo do Planejamento -->
+                <div class="card" style="margin-top: 2rem; display: none;" id="cardResumoPlano">
+                    <h3>📊 Resumo do Planejamento</h3>
+                    <div class="stats-grid" id="statsPlano">
+                        <div class="stat-card">
+                            <div class="stat-value" id="statTotalPedidos">0</div>
+                            <div class="stat-label">Total de Pedidos</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="statTotalHoras">0h</div>
+                            <div class="stat-label">Total de Horas</div>
+                        </div>
+                        <div class="stat-card critical">
+                            <div class="stat-value" id="statCriticos">0</div>
+                            <div class="stat-label">Pedidos Críticos</div>
+                        </div>
+                        <div class="stat-card warning">
+                            <div class="stat-value" id="statAtenção">0</div>
+                            <div class="stat-label">Pedidos em Atenção</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Alertas -->
+                <div id="alertasPlano" style="margin-top: 2rem;"></div>
+
+                <!-- Planejamento por Máquina -->
+                <div id="planejamentoPorMaquina" style="margin-top: 2rem;">
+                    <!-- Será preenchido dinamicamente -->
+                </div>
+
                 <div id="resultadoPlanejamento">
-                    <p class="info-text">Gere um planejamento primeiro</p>
+                    <p class="info-text" style="margin-top: 3rem; text-align: center;">
+                        📋 Adicione pedidos e gere o planejamento dinâmico para visualizar as datas de produção
+                    </p>
                 </div>
             </div>
 

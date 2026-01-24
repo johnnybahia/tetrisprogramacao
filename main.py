@@ -17,6 +17,8 @@ from pathlib import Path
 from modules.database_manager import GoogleSheetsManager
 from modules.calculator import ProductionCalculator, formatar_data_br
 from modules.optimizer import ProductionOptimizer
+from modules.workday_calendar import get_calendar
+from modules.dynamic_planner import get_planner
 
 # ========================================
 # INICIALIZAÇÃO
@@ -70,6 +72,39 @@ class PedidoCreate(BaseModel):
 
 class OtimizacaoRequest(BaseModel):
     pedidos: List[Dict]
+
+class HolidaysRequest(BaseModel):
+    dates: List[str]
+
+class WeekendConfigRequest(BaseModel):
+    work_saturday: bool
+    work_sunday: bool
+
+class WeekendDatesRequest(BaseModel):
+    saturdays: List[str]
+    sundays: List[str]
+
+class DynamicPlanRequest(BaseModel):
+    orders: List[Dict]
+    start_date: Optional[str] = None
+
+class ReorderRequest(BaseModel):
+    machine: str
+    order_ids: List[str]
+    all_orders: List[Dict]
+    start_date: Optional[str] = None
+
+class MoveOrderRequest(BaseModel):
+    order_id: str
+    from_position: int
+    to_position: int
+    machine: str
+    all_orders: List[Dict]
+    start_date: Optional[str] = None
+
+class SavePlanRequest(BaseModel):
+    plan_name: str
+    plan: Dict
 
 # ========================================
 # ROTA PRINCIPAL - Serve o HTML
@@ -339,6 +374,250 @@ async def gerar_relatorio_otimizacao(resultado_data: Dict):
             "relatorio": relatorio
         }
 
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ========================================
+# ROTAS DE CALENDÁRIO DE TRABALHO
+# ========================================
+
+@app.get("/api/calendario/summary")
+async def get_calendar_summary():
+    """Retorna resumo do calendário de trabalho"""
+    try:
+        calendar = get_calendar()
+        return calendar.get_summary()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/calendario/feriados")
+async def add_holidays(request: HolidaysRequest):
+    """Adiciona feriados ao calendário"""
+    try:
+        calendar = get_calendar()
+        result = calendar.add_holidays(request.dates)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/calendario/feriados")
+async def remove_holidays(request: HolidaysRequest):
+    """Remove feriados do calendário"""
+    try:
+        calendar = get_calendar()
+        result = calendar.remove_holidays(request.dates)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/calendario/feriados")
+async def get_holidays():
+    """Lista todos os feriados cadastrados"""
+    try:
+        calendar = get_calendar()
+        holidays = calendar.get_holidays()
+        return {"holidays": holidays}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/calendario/fins-de-semana/config")
+async def set_weekend_config(request: WeekendConfigRequest):
+    """Define se trabalha aos fins de semana por padrão"""
+    try:
+        calendar = get_calendar()
+        calendar.set_weekend_working(request.work_saturday, request.work_sunday)
+        return {
+            "success": True,
+            "message": "Configuração de fins de semana atualizada"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/calendario/fins-de-semana/config")
+async def get_weekend_config():
+    """Retorna configuração de fins de semana"""
+    try:
+        calendar = get_calendar()
+        return calendar.get_weekend_config()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/calendario/fins-de-semana/{year}")
+async def get_weekends_in_year(year: int):
+    """Lista todos os sábados e domingos de um ano"""
+    try:
+        calendar = get_calendar()
+        weekends = calendar.get_weekends_in_year(year)
+        return weekends
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/calendario/fins-de-semana/datas")
+async def set_working_weekend_dates(request: WeekendDatesRequest):
+    """Define datas específicas de fins de semana como dias de trabalho"""
+    try:
+        calendar = get_calendar()
+        calendar.set_working_weekend_dates(request.saturdays, request.sundays)
+        return {
+            "success": True,
+            "message": "Datas de fins de semana atualizadas"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/calendario/limpar")
+async def clear_calendar():
+    """Limpa todas as configurações do calendário"""
+    try:
+        calendar = get_calendar()
+        calendar.clear_all()
+        return {
+            "success": True,
+            "message": "Calendário limpo com sucesso"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ========================================
+# ROTAS DE PLANEJAMENTO DINÂMICO
+# ========================================
+
+@app.post("/api/planejamento/dinamico/criar")
+async def create_dynamic_plan(request: DynamicPlanRequest):
+    """Cria um plano de produção dinâmico"""
+    try:
+        planner = get_planner()
+
+        # Converte data se fornecida
+        start_date = None
+        if request.start_date:
+            try:
+                start_date = datetime.strptime(request.start_date, "%d/%m/%Y")
+            except:
+                start_date = datetime.strptime(request.start_date, "%Y-%m-%d")
+
+        plan = planner.create_plan(request.orders, start_date)
+        return plan
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/planejamento/dinamico/reordenar")
+async def reorder_orders(request: ReorderRequest):
+    """Reordena pedidos de uma máquina e recalcula"""
+    try:
+        planner = get_planner()
+
+        # Converte data se fornecida
+        start_date = None
+        if request.start_date:
+            try:
+                start_date = datetime.strptime(request.start_date, "%d/%m/%Y")
+            except:
+                start_date = datetime.strptime(request.start_date, "%Y-%m-%d")
+
+        plan = planner.reorder_and_recalculate(
+            request.machine,
+            request.order_ids,
+            request.all_orders,
+            start_date
+        )
+        return plan
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/planejamento/dinamico/mover")
+async def move_order(request: MoveOrderRequest):
+    """Move um pedido de uma posição para outra"""
+    try:
+        planner = get_planner()
+
+        # Converte data se fornecida
+        start_date = None
+        if request.start_date:
+            try:
+                start_date = datetime.strptime(request.start_date, "%d/%m/%Y")
+            except:
+                start_date = datetime.strptime(request.start_date, "%Y-%m-%d")
+
+        plan = planner.move_order(
+            request.order_id,
+            request.from_position,
+            request.to_position,
+            request.machine,
+            request.all_orders,
+            start_date
+        )
+        return plan
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/planejamento/dinamico/timeline/{machine}")
+async def get_machine_timeline(machine: str, plan: Dict):
+    """Obtém timeline de uma máquina"""
+    try:
+        planner = get_planner()
+        timeline = planner.get_machine_timeline(machine, plan)
+        return timeline
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/planejamento/dinamico/salvar")
+async def save_plan(request: SavePlanRequest):
+    """Salva um plano"""
+    try:
+        planner = get_planner()
+        success = planner.save_plan(request.plan_name, request.plan)
+        return {
+            "success": success,
+            "message": f"Plano '{request.plan_name}' salvo com sucesso" if success else "Erro ao salvar plano"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/planejamento/dinamico/carregar/{plan_name}")
+async def load_plan(plan_name: str):
+    """Carrega um plano salvo"""
+    try:
+        planner = get_planner()
+        plan = planner.load_plan(plan_name)
+
+        if plan is None:
+            raise HTTPException(status_code=404, detail="Plano não encontrado")
+
+        return plan
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/planejamento/dinamico/listar")
+async def list_saved_plans():
+    """Lista todos os planos salvos"""
+    try:
+        planner = get_planner()
+        plans = planner.list_saved_plans()
+        return {"plans": plans}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/maquinas/{maquina}/disponibilidade")
+async def get_machine_availability(maquina: str):
+    """Retorna a disponibilidade (horas/dia) de uma máquina"""
+    try:
+        availability = db_manager.get_machine_availability(maquina)
+        return {
+            "maquina": maquina,
+            "availability_hours": availability
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/maquinas/disponibilidade/todas")
+async def get_all_machines_availability():
+    """Retorna a disponibilidade de todas as máquinas"""
+    try:
+        availability_dict = db_manager.get_all_machines_availability()
+        return {"machines_availability": availability_dict}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

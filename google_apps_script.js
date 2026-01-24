@@ -11,6 +11,8 @@ function doGet(e) {
     return getAllData();
   } else if (action === 'getSheet') {
     return getSheetData(e.parameter.sheetName);
+  } else if (action === 'getCell') {
+    return getCellValue(e.parameter.sheetName, e.parameter.cell);
   } else if (action === 'getMaquinas') {
     return getMaquinas();
   } else if (action === 'getClientes') {
@@ -100,6 +102,40 @@ function getSheetData(sheetName) {
 
   return ContentService.createTextOutput(JSON.stringify(result))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+function getCellValue(sheetName, cellAddress) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(sheetName);
+
+  if (!sheet) {
+    return ContentService.createTextOutput(JSON.stringify({
+      error: 'Aba não encontrada',
+      value: null
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  try {
+    const cell = sheet.getRange(cellAddress);
+    let value = cell.getValue();
+
+    // Se for uma data, converte para string
+    if (value instanceof Date) {
+      value = value.toISOString().split('T')[0];
+    }
+
+    return ContentService.createTextOutput(JSON.stringify({
+      value: value,
+      cell: cellAddress,
+      sheet: sheetName
+    })).setMimeType(ContentService.MimeType.JSON);
+
+  } catch (error) {
+    return ContentService.createTextOutput(JSON.stringify({
+      error: error.toString(),
+      value: null
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
 }
 
 function getMaquinas() {
