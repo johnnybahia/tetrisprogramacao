@@ -222,6 +222,106 @@ class GoogleSheetsManager:
                 print(error_msg)
             return []
 
+    def get_pedidos_cadastrados(self) -> List[Dict]:
+        """
+        Obtém lista completa de pedidos da aba DADOS_GERAIS
+
+        Returns:
+            Lista de dicionários com dados dos pedidos
+        """
+        cache_key = "pedidos_cadastrados"
+
+        # Verifica cache
+        if self._is_cache_valid(cache_key):
+            return self._get_from_cache(cache_key)
+
+        try:
+            data = self.get_sheet_data('DADOS_GERAIS')
+
+            # Filtra pedidos válidos (que tenham pelo menos cliente e máquina)
+            pedidos = [
+                p for p in data
+                if p.get('CLIENTE') and p.get('MAQUINAS')
+            ]
+
+            self._set_cache(cache_key, pedidos)
+            return pedidos
+        except Exception as e:
+            error_msg = f"Erro ao carregar pedidos cadastrados: {str(e)}"
+            if HAS_STREAMLIT:
+                st.error(error_msg)
+            else:
+                print(error_msg)
+            return []
+
+    def get_machine_availability(self, maquina: str) -> float:
+        """
+        Obtém a disponibilidade da máquina (horas por dia) da célula K1
+
+        Args:
+            maquina: Nome da máquina
+
+        Returns:
+            Horas disponíveis por dia (float), padrão 8.0 se não encontrado
+        """
+        cache_key = f"availability_{maquina}"
+
+        # Verifica cache
+        if self._is_cache_valid(cache_key):
+            return self._get_from_cache(cache_key)
+
+        # Normaliza o nome da aba
+        sheet_name = f"DADOS_{maquina.replace(' ', '_').upper()}"
+
+        try:
+            response = requests.get(
+                f"{self.base_url}?action=getCell&sheetName={sheet_name}&cell=K1",
+                timeout=10
+            )
+            response.raise_for_status()
+            data = response.json()
+
+            # Tenta converter para float
+            availability = float(data.get('value', 8.0))
+
+            # Valida se está em um range razoável (0-24 horas)
+            if availability <= 0 or availability > 24:
+                availability = 8.0
+
+            self._set_cache(cache_key, availability)
+            return availability
+
+        except Exception as e:
+            error_msg = f"Erro ao carregar disponibilidade da máquina {maquina}: {str(e)}"
+            if HAS_STREAMLIT:
+                st.warning(error_msg)
+            else:
+                print(error_msg)
+            # Retorna valor padrão de 8 horas
+            return 8.0
+
+    def get_all_machines_availability(self) -> Dict[str, float]:
+        """
+        Obtém a disponibilidade de todas as máquinas
+
+        Returns:
+            Dicionário com {nome_maquina: horas_disponiveis}
+        """
+        cache_key = "all_availability"
+
+        # Verifica cache
+        if self._is_cache_valid(cache_key):
+            return self._get_from_cache(cache_key)
+
+        maquinas = self.get_maquinas()
+        availability_dict = {}
+
+        for maquina in maquinas:
+            availability_dict[maquina] = self.get_machine_availability(maquina)
+
+        self._set_cache(cache_key, availability_dict)
+        return availability_dict
+
     def get_produtos_por_maquina(self, maquina: str) -> pd.DataFrame:
         """
         Obtém produtos de uma máquina específica
