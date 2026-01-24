@@ -458,6 +458,106 @@ class DynamicPlanner:
             print(f"Erro ao listar planos: {e}")
             return []
 
+    def calculate_changeover_stats(
+        self,
+        plan: Dict,
+        days: int = 5,
+        hours_per_day: float = 24.0
+    ) -> Dict:
+        """
+        Calcula estatísticas de trocas de produtos para planejamento de mão de obra
+
+        Args:
+            plan: Plano completo gerado pelo create_plan
+            days: Período de tempo em dias (padrão 5 dias)
+            hours_per_day: Horas de operação por dia (padrão 24h para operação contínua)
+
+        Returns:
+            Dicionário com estatísticas de trocas por máquina
+        """
+        if not plan.get('success'):
+            return {'success': False, 'error': 'Plano inválido'}
+
+        machine_plans = plan.get('machine_plans', {})
+        changeover_stats = {}
+
+        total_changeovers = 0
+        total_production_hours = 0
+
+        for machine_name, machine_plan in machine_plans.items():
+            orders = machine_plan.get('orders', [])
+
+            if not orders:
+                continue
+
+            # Conta trocas de produto (cada vez que o produto muda)
+            changeovers = 0
+            previous_produto = None
+
+            for order in orders:
+                current_produto = order.get('produto')
+
+                # Se o produto mudou, incrementa contador de trocas
+                if previous_produto is not None and current_produto != previous_produto:
+                    changeovers += 1
+
+                previous_produto = current_produto
+
+            # Horas totais de produção nesta máquina
+            machine_hours = machine_plan.get('total_hours', 0)
+
+            # Horas disponíveis no período
+            available_hours = days * hours_per_day
+
+            # Taxa de utilização
+            utilization = (machine_hours / available_hours * 100) if available_hours > 0 else 0
+
+            # Produtos únicos
+            unique_products = len(set(order.get('produto') for order in orders))
+
+            # Trocas por dia
+            changeovers_per_day = changeovers / days if days > 0 else 0
+
+            # Ciclos completos (quantas vezes todo o conjunto de produtos pode ser produzido)
+            cycles = (available_hours / machine_hours) if machine_hours > 0 else 0
+
+            changeover_stats[machine_name] = {
+                'total_orders': len(orders),
+                'unique_products': unique_products,
+                'total_changeovers': changeovers,
+                'changeovers_per_day': round(changeovers_per_day, 2),
+                'total_production_hours': round(machine_hours, 2),
+                'available_hours': round(available_hours, 2),
+                'utilization_percentage': round(utilization, 1),
+                'idle_hours': round(available_hours - machine_hours, 2),
+                'cycles_possible': round(cycles, 2),
+                'avg_hours_per_changeover': round(machine_hours / changeovers, 2) if changeovers > 0 else 0,
+                'machine_availability_hours_per_day': machine_plan.get('availability_hours', 8.0)
+            }
+
+            total_changeovers += changeovers
+            total_production_hours += machine_hours
+
+        # Estatísticas gerais
+        total_available = days * hours_per_day * len(machine_plans)
+        overall_utilization = (total_production_hours / total_available * 100) if total_available > 0 else 0
+
+        return {
+            'success': True,
+            'period_days': days,
+            'hours_per_day': hours_per_day,
+            'machine_stats': changeover_stats,
+            'summary': {
+                'total_machines': len(machine_plans),
+                'total_changeovers': total_changeovers,
+                'avg_changeovers_per_day': round(total_changeovers / days, 2) if days > 0 else 0,
+                'total_production_hours': round(total_production_hours, 2),
+                'total_available_hours': round(total_available, 2),
+                'overall_utilization': round(overall_utilization, 1),
+                'total_idle_hours': round(total_available - total_production_hours, 2)
+            }
+        }
+
 
 # Instância global do planejador
 _planner_instance = None

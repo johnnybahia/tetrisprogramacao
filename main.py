@@ -618,6 +618,31 @@ async def list_saved_plans():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/api/planejamento/dinamico/calcular-trocas")
+async def calculate_changeovers(request: dict):
+    """
+    Calcula estatísticas de trocas de produtos para planejamento de mão de obra
+
+    Recebe um plano e retorna:
+    - Número de trocas de produtos por máquina
+    - Trocas por dia
+    - Utilização de capacidade
+    - Horas ociosas
+    """
+    try:
+        planner = get_planner()
+        plan = request.get('plan')
+        days = request.get('days', 5)
+        hours_per_day = request.get('hours_per_day', 24)
+
+        if not plan:
+            raise HTTPException(status_code=400, detail="Plano não fornecido")
+
+        stats = planner.calculate_changeover_stats(plan, days, hours_per_day)
+        return stats
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/api/maquinas/{maquina}/disponibilidade")
 async def get_machine_availability(maquina: str):
     """Retorna a disponibilidade (horas/dia) de uma máquina"""

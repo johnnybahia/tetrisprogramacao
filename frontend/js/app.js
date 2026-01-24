@@ -975,6 +975,9 @@ function mostrarPlanejamentoDinamico(plan) {
     // Mostra card de resumo
     document.getElementById('cardResumoPlano').style.display = 'block';
 
+    // Mostra card de trocas de produtos
+    document.getElementById('cardTrocasProdutos').style.display = 'block';
+
     // Atualiza stats
     document.getElementById('statTotalPedidos').textContent = plan.summary.total_orders;
     document.getElementById('statTotalHoras').textContent = plan.summary.total_hours.toFixed(1) + 'h';
@@ -1492,6 +1495,173 @@ async function aplicarSugestoes() {
 function fecharSugestoes() {
     document.getElementById('cardSugestoes').style.display = 'none';
     sugestoesAtivas = null;
+}
+
+// Calcula estatísticas de trocas de produtos
+async function calcularTrocasProdutos() {
+    if (!planejamentoAtual || !planejamentoAtual.success) {
+        alert('Gere um planejamento primeiro!');
+        return;
+    }
+
+    const dias = parseInt(document.getElementById('inputPeriodoDias').value) || 5;
+    const horasPorDia = parseFloat(document.getElementById('inputHorasPorDia').value) || 24;
+
+    try {
+        const response = await fetch(API_URL + '/planejamento/dinamico/calcular-trocas', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                plan: planejamentoAtual,
+                days: dias,
+                hours_per_day: horasPorDia
+            })
+        });
+
+        const stats = await response.json();
+
+        if (stats.success) {
+            mostrarEstatisticasTrocas(stats);
+        } else {
+            alert('Erro ao calcular trocas: ' + (stats.error || 'Erro desconhecido'));
+        }
+    } catch (error) {
+        console.error('Erro ao calcular trocas:', error);
+        alert('Erro ao calcular estatísticas de trocas');
+    }
+}
+
+// Mostra estatísticas de trocas
+function mostrarEstatisticasTrocas(stats) {
+    const container = document.getElementById('estatisticasTrocas');
+
+    let html = `
+        <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;">
+            <h4 style="margin-top: 0;">📊 Resumo Geral - ${stats.period_days} dias @ ${stats.hours_per_day}h/dia</h4>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value">${stats.summary.total_changeovers}</div>
+                    <div class="stat-label">Total de Trocas</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${stats.summary.avg_changeovers_per_day}</div>
+                    <div class="stat-label">Trocas por Dia (média)</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${stats.summary.total_production_hours}h</div>
+                    <div class="stat-label">Horas de Produção</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${stats.summary.overall_utilization}%</div>
+                    <div class="stat-label">Utilização Geral</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${stats.summary.total_available_hours}h</div>
+                    <div class="stat-label">Horas Disponíveis</div>
+                </div>
+                <div class="stat-card warning">
+                    <div class="stat-value">${stats.summary.total_idle_hours}h</div>
+                    <div class="stat-label">Horas Ociosas</div>
+                </div>
+            </div>
+        </div>
+
+        <h4>🔧 Estatísticas por Máquina</h4>
+    `;
+
+    // Para cada máquina
+    for (const [machineName, machineStats] of Object.entries(stats.machine_stats)) {
+        const utilizationClass = machineStats.utilization_percentage > 80 ? 'critical' :
+                                 machineStats.utilization_percentage > 50 ? 'warning' : '';
+
+        html += `
+            <div class="card" style="margin-bottom: 1rem; border-left: 4px solid ${
+                machineStats.utilization_percentage > 80 ? '#e74c3c' :
+                machineStats.utilization_percentage > 50 ? '#f39c12' : '#27ae60'
+            };">
+                <h5 style="margin-top: 0;">🏭 ${machineName}</h5>
+
+                <div class="stats-grid" style="margin-bottom: 1rem;">
+                    <div class="stat-card ${utilizationClass}">
+                        <div class="stat-value">${machineStats.total_changeovers}</div>
+                        <div class="stat-label">Trocas de Produto</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${machineStats.changeovers_per_day}</div>
+                        <div class="stat-label">Trocas/Dia</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${machineStats.unique_products}</div>
+                        <div class="stat-label">Produtos Únicos</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${machineStats.total_orders}</div>
+                        <div class="stat-label">Total de Pedidos</div>
+                    </div>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value">${machineStats.total_production_hours}h</div>
+                        <div class="stat-label">Horas de Produção</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${machineStats.available_hours}h</div>
+                        <div class="stat-label">Horas Disponíveis (${stats.period_days}d @ ${stats.hours_per_day}h/d)</div>
+                    </div>
+                    <div class="stat-card ${utilizationClass}">
+                        <div class="stat-value">${machineStats.utilization_percentage}%</div>
+                        <div class="stat-label">Utilização</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${machineStats.idle_hours}h</div>
+                        <div class="stat-label">Horas Ociosas</div>
+                    </div>
+                </div>
+
+                <div style="margin-top: 1rem; padding: 0.75rem; background: #ecf0f1; border-radius: 4px;">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.5rem;">
+                        <div><strong>Ciclos Possíveis:</strong> ${machineStats.cycles_possible}x</div>
+                        <div><strong>Horas/Troca (média):</strong> ${machineStats.avg_hours_per_changeover}h</div>
+                        <div><strong>Disponibilidade:</strong> ${machineStats.machine_availability_hours_per_day}h/dia útil</div>
+                    </div>
+                </div>
+
+                ${machineStats.utilization_percentage > 100 ? `
+                    <div class="alert critical" style="margin-top: 1rem;">
+                        <div class="alert-icon">⚠️</div>
+                        <div class="alert-content">
+                            <div class="alert-title">CAPACIDADE EXCEDIDA</div>
+                            <div class="alert-message">Esta máquina não tem capacidade suficiente para completar os pedidos no período especificado.</div>
+                        </div>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    }
+
+    // Adiciona interpretação e recomendações
+    html += `
+        <div class="card" style="background: #e8f5e9; border: 1px solid #4caf50;">
+            <h4 style="margin-top: 0;">💡 Interpretação e Planejamento de Mão de Obra</h4>
+            <ul style="margin: 0; padding-left: 1.5rem;">
+                <li><strong>Total de Trocas:</strong> Serão necessárias <strong>${stats.summary.total_changeovers} trocas de produtos</strong> em ${stats.period_days} dias.</li>
+                <li><strong>Frequência:</strong> Em média, <strong>${stats.summary.avg_changeovers_per_day} trocas por dia</strong>.</li>
+                <li><strong>Mão de Obra:</strong> Cada troca requer operador para setup/configuração da máquina.</li>
+                <li><strong>Operação Contínua (${stats.hours_per_day}h/dia):</strong> Requer turnos suficientes para cobrir ${stats.hours_per_day} horas por dia.</li>
+                <li><strong>Horas Ociosas:</strong> ${stats.summary.total_idle_hours}h disponíveis para manutenção, setup adicional ou novos pedidos.</li>
+            </ul>
+
+            ${stats.hours_per_day === 24 ? `
+                <div style="margin-top: 1rem; padding: 0.75rem; background: white; border-radius: 4px;">
+                    <strong>Recomendação para Operação 24h:</strong><br>
+                    Considere 3 turnos de 8h (ou 2 turnos de 12h) com operadores capacitados para realizar as ${stats.summary.avg_changeovers_per_day} trocas diárias.
+                </div>
+            ` : ''}
+        </div>
+    `;
+
+    container.innerHTML = html;
 }
 
 // Inicializa calendário quando a página for mostrada
