@@ -219,6 +219,15 @@ async def get_datas():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/api/pedidos-cadastrados")
+async def get_pedidos_cadastrados():
+    """Retorna lista completa de pedidos da aba DADOS_GERAIS"""
+    try:
+        pedidos = db_manager.get_pedidos_cadastrados()
+        return {"pedidos": pedidos if pedidos else []}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 # ========================================
 # ROTAS DE PEDIDOS
 # ========================================

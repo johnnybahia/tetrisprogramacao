@@ -91,36 +91,43 @@
             <!-- PÁGINA: PEDIDOS -->
             <div class="page" id="page-pedidos">
                 <h2 class="page-title">Lançar Pedidos</h2>
-                
+
                 <div class="card">
+                    <h3>📋 Selecionar Pedido Cadastrado</h3>
+                    <p style="margin-bottom: 1rem; color: #64748b;">Selecione um pedido da aba DADOS_GERAIS para adicionar ao planejamento</p>
+
                     <form id="formPedido">
                         <div class="form-grid">
                             <div class="form-group">
                                 <label>Cliente *</label>
-                                <input type="text" id="inputCliente" required>
-                            </div>
-
-                            <div class="form-group">
-                                <label>Ordem de Compra *</label>
-                                <input type="text" id="inputOrdem" required>
-                            </div>
-
-                            <div class="form-group">
-                                <label>Data Entrega (DD/MM/AAAA) *</label>
-                                <input type="text" id="inputDataEntrega" placeholder="25/03/2025" required>
-                            </div>
-
-                            <div class="form-group">
-                                <label>Máquina *</label>
-                                <select id="inputMaquinaPedido" required>
-                                    <option value="">Selecione...</option>
+                                <select id="inputCliente" required>
+                                    <option value="">Carregando...</option>
                                 </select>
                             </div>
 
                             <div class="form-group">
-                                <label>Produto *</label>
-                                <select id="inputProduto" required>
-                                    <option value="">Selecione máquina primeiro</option>
+                                <label>Ordem de Compra *</label>
+                                <select id="inputOrdem" required disabled>
+                                    <option value="">Selecione cliente primeiro</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Data Entrega *</label>
+                                <select id="inputDataEntrega" required disabled>
+                                    <option value="">Selecione ordem primeiro</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Máquina *</label>
+                                <input type="text" id="inputMaquinaPedido" readonly required>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Produto (REFERÊNCIAS/MÁQUINA) *</label>
+                                <select id="inputProduto" required disabled>
+                                    <option value="">Selecione pedido completo primeiro</option>
                                 </select>
                             </div>
 
@@ -135,7 +142,7 @@
                             </div>
                         </div>
 
-                        <button type="submit" class="btn btn-primary">➕ Adicionar Pedido</button>
+                        <button type="submit" class="btn btn-primary">➕ Adicionar Pedido ao Planejamento</button>
                     </form>
                 </div>
 

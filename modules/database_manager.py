@@ -222,6 +222,38 @@ class GoogleSheetsManager:
                 print(error_msg)
             return []
 
+    def get_pedidos_cadastrados(self) -> List[Dict]:
+        """
+        Obtém lista completa de pedidos da aba DADOS_GERAIS
+
+        Returns:
+            Lista de dicionários com dados dos pedidos
+        """
+        cache_key = "pedidos_cadastrados"
+
+        # Verifica cache
+        if self._is_cache_valid(cache_key):
+            return self._get_from_cache(cache_key)
+
+        try:
+            data = self.get_sheet_data('DADOS_GERAIS')
+
+            # Filtra pedidos válidos (que tenham pelo menos cliente e máquina)
+            pedidos = [
+                p for p in data
+                if p.get('CLIENTE') and p.get('MAQUINAS')
+            ]
+
+            self._set_cache(cache_key, pedidos)
+            return pedidos
+        except Exception as e:
+            error_msg = f"Erro ao carregar pedidos cadastrados: {str(e)}"
+            if HAS_STREAMLIT:
+                st.error(error_msg)
+            else:
+                print(error_msg)
+            return []
+
     def get_machine_availability(self, maquina: str) -> float:
         """
         Obtém a disponibilidade da máquina (horas por dia) da célula K1

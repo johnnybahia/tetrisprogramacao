@@ -18,6 +18,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Carrega máquinas
     loadMaquinas();
 
+    // Carrega pedidos cadastrados
+    loadPedidosCadastrados();
+
     // Event listeners de navegação
     setupNavigation();
 
@@ -79,27 +82,20 @@ async function checkStatus() {
 // MÁQUINAS
 // ========================================
 
+// Estado global para pedidos cadastrados
+let pedidosCadastradosGlobal = [];
+
 async function loadMaquinas() {
     try {
         const response = await fetch(API_URL + '/maquinas');
         const data = await response.json();
 
         const selectCadastro = document.getElementById('inputMaquina');
-        const selectPedido = document.getElementById('inputMaquinaPedido');
 
         selectCadastro.innerHTML = '<option value="">Selecione...</option>';
-        selectPedido.innerHTML = '<option value="">Selecione...</option>';
 
         data.maquinas.forEach(maq => {
             selectCadastro.innerHTML += '<option value="' + maq + '">' + maq + '</option>';
-            selectPedido.innerHTML += '<option value="' + maq + '">' + maq + '</option>';
-        });
-
-        // Event listener para carregar produtos quando selecionar máquina
-        selectPedido.addEventListener('change', (e) => {
-            if (e.target.value) {
-                loadProdutos(e.target.value);
-            }
         });
 
         selectCadastro.addEventListener('change', (e) => {
@@ -110,6 +106,177 @@ async function loadMaquinas() {
 
     } catch (error) {
         console.error('Erro ao carregar máquinas:', error);
+    }
+}
+
+// ========================================
+// PEDIDOS CADASTRADOS (DADOS_GERAIS)
+// ========================================
+
+// Carrega pedidos cadastrados da aba DADOS_GERAIS
+async function loadPedidosCadastrados() {
+    try {
+        const response = await fetch(API_URL + '/pedidos-cadastrados');
+        const data = await response.json();
+
+        pedidosCadastradosGlobal = data.pedidos || [];
+
+        // Preenche select de clientes (únicos)
+        const clientes = [...new Set(pedidosCadastradosGlobal.map(p => p.CLIENTE))].filter(c => c);
+        const selectCliente = document.getElementById('inputCliente');
+
+        selectCliente.innerHTML = '<option value="">Selecione...</option>';
+        clientes.forEach(cliente => {
+            selectCliente.innerHTML += `<option value="${cliente}">${cliente}</option>`;
+        });
+
+        // Event listener para cliente
+        selectCliente.removeEventListener('change', onClienteChange);
+        selectCliente.addEventListener('change', onClienteChange);
+    } catch (error) {
+        console.error('Erro ao carregar pedidos cadastrados:', error);
+    }
+}
+
+// Quando seleciona cliente, carrega ordens desse cliente
+function onClienteChange(e) {
+    const cliente = e.target.value;
+
+    const selectOrdem = document.getElementById('inputOrdem');
+    const selectData = document.getElementById('inputDataEntrega');
+    const inputMaquina = document.getElementById('inputMaquinaPedido');
+    const selectProduto = document.getElementById('inputProduto');
+
+    if (!cliente) {
+        selectOrdem.innerHTML = '<option value="">Selecione cliente primeiro</option>';
+        selectOrdem.disabled = true;
+        selectData.innerHTML = '<option value="">Selecione ordem primeiro</option>';
+        selectData.disabled = true;
+        inputMaquina.value = '';
+        selectProduto.innerHTML = '<option value="">Selecione pedido completo primeiro</option>';
+        selectProduto.disabled = true;
+        return;
+    }
+
+    // Filtra pedidos do cliente
+    const pedidosCliente = pedidosCadastradosGlobal.filter(p => p.CLIENTE === cliente);
+
+    // Ordens únicas
+    const ordens = [...new Set(pedidosCliente.map(p => p['ORDEM DE COMPRA']))].filter(o => o);
+
+    selectOrdem.innerHTML = '<option value="">Selecione...</option>';
+    ordens.forEach(ordem => {
+        selectOrdem.innerHTML += `<option value="${ordem}">${ordem}</option>`;
+    });
+    selectOrdem.disabled = false;
+
+    // Reseta data
+    selectData.innerHTML = '<option value="">Selecione ordem primeiro</option>';
+    selectData.disabled = true;
+
+    // Reseta máquina e produto
+    inputMaquina.value = '';
+    selectProduto.innerHTML = '<option value="">Selecione pedido completo primeiro</option>';
+    selectProduto.disabled = true;
+
+    // Event listener para ordem (remove anteriores)
+    selectOrdem.removeEventListener('change', onOrdemChange);
+    selectOrdem.addEventListener('change', onOrdemChange);
+}
+
+// Quando seleciona ordem, carrega datas dessa ordem
+function onOrdemChange(e) {
+    const cliente = document.getElementById('inputCliente').value;
+    const ordem = e.target.value;
+
+    const selectData = document.getElementById('inputDataEntrega');
+    const inputMaquina = document.getElementById('inputMaquinaPedido');
+    const selectProduto = document.getElementById('inputProduto');
+
+    if (!ordem) {
+        selectData.innerHTML = '<option value="">Selecione ordem primeiro</option>';
+        selectData.disabled = true;
+        inputMaquina.value = '';
+        selectProduto.innerHTML = '<option value="">Selecione pedido completo primeiro</option>';
+        selectProduto.disabled = true;
+        return;
+    }
+
+    // Filtra pedidos do cliente e ordem
+    const pedidosFiltrados = pedidosCadastradosGlobal.filter(
+        p => p.CLIENTE === cliente && p['ORDEM DE COMPRA'] === ordem
+    );
+
+    // Datas únicas
+    const datas = [...new Set(pedidosFiltrados.map(p => p['DATA DE ENTREGA']))].filter(d => d);
+
+    selectData.innerHTML = '<option value="">Selecione...</option>';
+    datas.forEach(data => {
+        selectData.innerHTML += `<option value="${data}">${data}</option>`;
+    });
+    selectData.disabled = false;
+
+    // Reseta máquina e produto
+    inputMaquina.value = '';
+    selectProduto.innerHTML = '<option value="">Selecione pedido completo primeiro</option>';
+    selectProduto.disabled = true;
+
+    // Event listener para data (remove anteriores)
+    selectData.removeEventListener('change', onDataChange);
+    selectData.addEventListener('change', onDataChange);
+}
+
+// Quando seleciona data, preenche máquina e carrega produtos
+async function onDataChange(e) {
+    const cliente = document.getElementById('inputCliente').value;
+    const ordem = document.getElementById('inputOrdem').value;
+    const dataEntrega = e.target.value;
+
+    const inputMaquina = document.getElementById('inputMaquinaPedido');
+    const selectProduto = document.getElementById('inputProduto');
+
+    if (!dataEntrega) {
+        inputMaquina.value = '';
+        selectProduto.innerHTML = '<option value="">Selecione pedido completo primeiro</option>';
+        selectProduto.disabled = true;
+        return;
+    }
+
+    // Encontra o pedido específico
+    const pedido = pedidosCadastradosGlobal.find(
+        p => p.CLIENTE === cliente &&
+             p['ORDEM DE COMPRA'] === ordem &&
+             p['DATA DE ENTREGA'] === dataEntrega
+    );
+
+    if (!pedido) {
+        alert('Pedido não encontrado');
+        return;
+    }
+
+    // Preenche máquina
+    const maquina = pedido.MAQUINAS;
+    inputMaquina.value = maquina;
+
+    // Carrega produtos da máquina (usando REFERÊNCIAS/MÁQUINA)
+    try {
+        const response = await fetch(API_URL + '/produtos/' + encodeURIComponent(maquina));
+        const data = await response.json();
+
+        selectProduto.innerHTML = '<option value="">Selecione...</option>';
+
+        data.produtos.forEach(prod => {
+            // Usa REFERÊNCIAS/MÁQUINA como referência principal
+            const refMaquina = prod['REFERÊNCIAS/MÁQUINA'] || prod['REFERENCIA'] || '';
+            if (refMaquina) {
+                selectProduto.innerHTML += `<option value="${refMaquina}">${refMaquina}</option>`;
+            }
+        });
+
+        selectProduto.disabled = false;
+    } catch (error) {
+        console.error('Erro ao carregar produtos:', error);
+        alert('Erro ao carregar produtos da máquina');
     }
 }
 
@@ -126,7 +293,10 @@ async function loadProdutos(maquina) {
         select.innerHTML = '<option value="">Selecione...</option>';
 
         data.produtos.forEach(prod => {
-            select.innerHTML += '<option value="' + prod.REFERENCIA + '">' + prod.REFERENCIA + '</option>';
+            const refMaquina = prod['REFERÊNCIAS/MÁQUINA'] || prod['REFERENCIA'] || '';
+            if (refMaquina) {
+                select.innerHTML += '<option value="' + refMaquina + '">' + refMaquina + '</option>';
+            }
         });
 
     } catch (error) {
@@ -146,14 +316,15 @@ async function loadProdutosCadastrados(maquina) {
             return;
         }
 
-        let html = '<table><thead><tr><th>Referência</th><th>Tempo Prod</th><th>Tempo Mont</th><th>Cor</th></tr></thead><tbody>';
+        let html = '<table><thead><tr><th>Referência/Máquina</th><th>Tempo Prod</th><th>Tempo Mont</th><th>Cor</th></tr></thead><tbody>';
 
         data.produtos.forEach(prod => {
+            const refMaquina = prod['REFERÊNCIAS/MÁQUINA'] || prod['REFERENCIA'] || '-';
             html += '<tr>';
-            html += '<td><strong>' + prod.REFERENCIA + '</strong></td>';
-            html += '<td>' + prod['TEMPO DE PRODUÇÃO'] + 'min</td>';
-            html += '<td>' + prod['TEMPO DE MONTAGEM'] + 'min</td>';
-            html += '<td><div style="width: 30px; height: 30px; background: ' + prod.COR + '; border-radius: 5px;"></div></td>';
+            html += '<td><strong>' + refMaquina + '</strong></td>';
+            html += '<td>' + (prod['TEMPO DE PRODUÇÃO'] || 0) + 'min</td>';
+            html += '<td>' + (prod['TEMPO DE MONTAGEM'] || 0) + 'min</td>';
+            html += '<td><div style="width: 30px; height: 30px; background: ' + (prod.COR || '#ccc') + '; border-radius: 5px;"></div></td>';
             html += '</tr>';
         });
 
@@ -223,15 +394,28 @@ async function adicionarPedido() {
     const maquina = document.getElementById('inputMaquinaPedido').value;
     const produtoRef = document.getElementById('inputProduto').value;
 
-    // Busca dados completos do produto
+    if (!maquina) {
+        alert('Por favor, selecione um pedido completo (cliente, ordem e data)');
+        return;
+    }
+
+    if (!produtoRef) {
+        alert('Por favor, selecione um produto');
+        return;
+    }
+
+    // Busca dados completos do produto usando REFERÊNCIAS/MÁQUINA
     try {
-        const response = await fetch(API_URL + '/produtos/' + maquina);
+        const response = await fetch(API_URL + '/produtos/' + encodeURIComponent(maquina));
         const data = await response.json();
 
-        const produtoInfo = data.produtos.find(p => p.REFERENCIA === produtoRef);
+        // Busca pelo produto usando REFERÊNCIAS/MÁQUINA
+        const produtoInfo = data.produtos.find(p =>
+            (p['REFERÊNCIAS/MÁQUINA'] === produtoRef) || (p['REFERENCIA'] === produtoRef)
+        );
 
         if (!produtoInfo) {
-            alert('Produto não encontrado');
+            alert('Produto não encontrado na máquina');
             return;
         }
 
@@ -254,7 +438,17 @@ async function adicionarPedido() {
         atualizarListaPedidos();
         atualizarStatsOtimizacao();
 
-        document.getElementById('formPedido').reset();
+        // Reseta form mas mantém carregado loadPedidosCadastrados
+        document.getElementById('inputCliente').value = '';
+        document.getElementById('inputOrdem').innerHTML = '<option value="">Selecione cliente primeiro</option>';
+        document.getElementById('inputOrdem').disabled = true;
+        document.getElementById('inputDataEntrega').innerHTML = '<option value="">Selecione ordem primeiro</option>';
+        document.getElementById('inputDataEntrega').disabled = true;
+        document.getElementById('inputMaquinaPedido').value = '';
+        document.getElementById('inputProduto').innerHTML = '<option value="">Selecione pedido completo primeiro</option>';
+        document.getElementById('inputProduto').disabled = true;
+        document.getElementById('inputBocas').value = 1;
+        document.getElementById('inputQuantidade').value = 1;
 
         alert('✅ Pedido adicionado! Total: ' + pedidosTemporarios.length);
     } catch (error) {
