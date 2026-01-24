@@ -116,35 +116,104 @@ async function loadMaquinas() {
 // Carrega pedidos cadastrados da aba DADOS_GERAIS
 async function loadPedidosCadastrados() {
     try {
+        // Carrega pedidos cadastrados
         const response = await fetch(API_URL + '/pedidos-cadastrados');
         const data = await response.json();
-
         pedidosCadastradosGlobal = data.pedidos || [];
 
-        // Preenche select de clientes (únicos)
-        const clientes = [...new Set(pedidosCadastradosGlobal.map(p => p.CLIENTE))].filter(c => c);
-        const selectCliente = document.getElementById('inputCliente');
-
-        selectCliente.innerHTML = '<option value="">Selecione...</option>';
-        clientes.forEach(cliente => {
-            selectCliente.innerHTML += `<option value="${cliente}">${cliente}</option>`;
-        });
-
-        // Event listener para cliente
-        selectCliente.removeEventListener('change', onClienteChange);
-        selectCliente.addEventListener('change', onClienteChange);
+        // Carrega lista de máquinas
+        await loadMaquinasSelect();
     } catch (error) {
         console.error('Erro ao carregar pedidos cadastrados:', error);
     }
 }
 
+// Carrega lista de máquinas para o select
+async function loadMaquinasSelect() {
+    try {
+        const response = await fetch(API_URL + '/maquinas');
+        const data = await response.json();
+
+        const selectMaquina = document.getElementById('inputMaquinaPedido');
+        selectMaquina.innerHTML = '<option value="">Selecione...</option>';
+
+        data.maquinas.forEach(maquina => {
+            selectMaquina.innerHTML += `<option value="${maquina}">${maquina}</option>`;
+        });
+
+        // Event listener para máquina
+        selectMaquina.removeEventListener('change', onMaquinaChange);
+        selectMaquina.addEventListener('change', onMaquinaChange);
+    } catch (error) {
+        console.error('Erro ao carregar máquinas:', error);
+    }
+}
+
+// Quando seleciona máquina, busca K1 e libera clientes
+async function onMaquinaChange(e) {
+    const maquina = e.target.value;
+
+    const selectCliente = document.getElementById('inputCliente');
+    const selectOrdem = document.getElementById('inputOrdem');
+    const selectData = document.getElementById('inputDataEntrega');
+    const selectProduto = document.getElementById('inputProduto');
+    const inputBocas = document.getElementById('inputBocas');
+
+    if (!maquina) {
+        selectCliente.innerHTML = '<option value="">Selecione máquina primeiro</option>';
+        selectCliente.disabled = true;
+        selectOrdem.innerHTML = '<option value="">Selecione cliente primeiro</option>';
+        selectOrdem.disabled = true;
+        selectData.innerHTML = '<option value="">Selecione ordem primeiro</option>';
+        selectData.disabled = true;
+        selectProduto.innerHTML = '<option value="">Selecione pedido completo primeiro</option>';
+        selectProduto.disabled = true;
+        inputBocas.value = '';
+        return;
+    }
+
+    // Busca disponibilidade (K1) da máquina e preenche bocas
+    try {
+        const response = await fetch(API_URL + `/maquinas/${encodeURIComponent(maquina)}/disponibilidade`);
+        const data = await response.json();
+        inputBocas.value = data.availability_hours || 8;
+    } catch (error) {
+        console.error('Erro ao buscar disponibilidade da máquina:', error);
+        inputBocas.value = 8; // valor padrão
+    }
+
+    // Filtra pedidos apenas desta máquina
+    const pedidosMaquina = pedidosCadastradosGlobal.filter(p => p.MAQUINAS === maquina);
+
+    // Extrai clientes únicos
+    const clientes = [...new Set(pedidosMaquina.map(p => p.CLIENTE))].filter(c => c);
+
+    selectCliente.innerHTML = '<option value="">Selecione...</option>';
+    clientes.forEach(cliente => {
+        selectCliente.innerHTML += `<option value="${cliente}">${cliente}</option>`;
+    });
+    selectCliente.disabled = false;
+
+    // Reseta os outros selects
+    selectOrdem.innerHTML = '<option value="">Selecione cliente primeiro</option>';
+    selectOrdem.disabled = true;
+    selectData.innerHTML = '<option value="">Selecione ordem primeiro</option>';
+    selectData.disabled = true;
+    selectProduto.innerHTML = '<option value="">Selecione pedido completo primeiro</option>';
+    selectProduto.disabled = true;
+
+    // Event listener para cliente
+    selectCliente.removeEventListener('change', onClienteChange);
+    selectCliente.addEventListener('change', onClienteChange);
+}
+
 // Quando seleciona cliente, carrega ordens desse cliente
 function onClienteChange(e) {
+    const maquina = document.getElementById('inputMaquinaPedido').value;
     const cliente = e.target.value;
 
     const selectOrdem = document.getElementById('inputOrdem');
     const selectData = document.getElementById('inputDataEntrega');
-    const inputMaquina = document.getElementById('inputMaquinaPedido');
     const selectProduto = document.getElementById('inputProduto');
 
     if (!cliente) {
@@ -152,17 +221,18 @@ function onClienteChange(e) {
         selectOrdem.disabled = true;
         selectData.innerHTML = '<option value="">Selecione ordem primeiro</option>';
         selectData.disabled = true;
-        inputMaquina.value = '';
         selectProduto.innerHTML = '<option value="">Selecione pedido completo primeiro</option>';
         selectProduto.disabled = true;
         return;
     }
 
-    // Filtra pedidos do cliente
-    const pedidosCliente = pedidosCadastradosGlobal.filter(p => p.CLIENTE === cliente);
+    // Filtra pedidos da máquina E do cliente
+    const pedidosFiltrados = pedidosCadastradosGlobal.filter(
+        p => p.MAQUINAS === maquina && p.CLIENTE === cliente
+    );
 
     // Ordens únicas
-    const ordens = [...new Set(pedidosCliente.map(p => p['ORDEM DE COMPRA']))].filter(o => o);
+    const ordens = [...new Set(pedidosFiltrados.map(p => p['ORDEM DE COMPRA']))].filter(o => o);
 
     selectOrdem.innerHTML = '<option value="">Selecione...</option>';
     ordens.forEach(ordem => {
@@ -170,12 +240,9 @@ function onClienteChange(e) {
     });
     selectOrdem.disabled = false;
 
-    // Reseta data
+    // Reseta data e produto
     selectData.innerHTML = '<option value="">Selecione ordem primeiro</option>';
     selectData.disabled = true;
-
-    // Reseta máquina e produto
-    inputMaquina.value = '';
     selectProduto.innerHTML = '<option value="">Selecione pedido completo primeiro</option>';
     selectProduto.disabled = true;
 
@@ -186,25 +253,24 @@ function onClienteChange(e) {
 
 // Quando seleciona ordem, carrega datas dessa ordem
 function onOrdemChange(e) {
+    const maquina = document.getElementById('inputMaquinaPedido').value;
     const cliente = document.getElementById('inputCliente').value;
     const ordem = e.target.value;
 
     const selectData = document.getElementById('inputDataEntrega');
-    const inputMaquina = document.getElementById('inputMaquinaPedido');
     const selectProduto = document.getElementById('inputProduto');
 
     if (!ordem) {
         selectData.innerHTML = '<option value="">Selecione ordem primeiro</option>';
         selectData.disabled = true;
-        inputMaquina.value = '';
         selectProduto.innerHTML = '<option value="">Selecione pedido completo primeiro</option>';
         selectProduto.disabled = true;
         return;
     }
 
-    // Filtra pedidos do cliente e ordem
+    // Filtra pedidos da máquina, cliente e ordem
     const pedidosFiltrados = pedidosCadastradosGlobal.filter(
-        p => p.CLIENTE === cliente && p['ORDEM DE COMPRA'] === ordem
+        p => p.MAQUINAS === maquina && p.CLIENTE === cliente && p['ORDEM DE COMPRA'] === ordem
     );
 
     // Datas únicas
@@ -216,8 +282,7 @@ function onOrdemChange(e) {
     });
     selectData.disabled = false;
 
-    // Reseta máquina e produto
-    inputMaquina.value = '';
+    // Reseta produto
     selectProduto.innerHTML = '<option value="">Selecione pedido completo primeiro</option>';
     selectProduto.disabled = true;
 
@@ -226,37 +291,20 @@ function onOrdemChange(e) {
     selectData.addEventListener('change', onDataChange);
 }
 
-// Quando seleciona data, preenche máquina e carrega produtos
+// Quando seleciona data, carrega produtos da máquina
 async function onDataChange(e) {
+    const maquina = document.getElementById('inputMaquinaPedido').value;
     const cliente = document.getElementById('inputCliente').value;
     const ordem = document.getElementById('inputOrdem').value;
     const dataEntrega = e.target.value;
 
-    const inputMaquina = document.getElementById('inputMaquinaPedido');
     const selectProduto = document.getElementById('inputProduto');
 
     if (!dataEntrega) {
-        inputMaquina.value = '';
         selectProduto.innerHTML = '<option value="">Selecione pedido completo primeiro</option>';
         selectProduto.disabled = true;
         return;
     }
-
-    // Encontra o pedido específico
-    const pedido = pedidosCadastradosGlobal.find(
-        p => p.CLIENTE === cliente &&
-             p['ORDEM DE COMPRA'] === ordem &&
-             p['DATA DE ENTREGA'] === dataEntrega
-    );
-
-    if (!pedido) {
-        alert('Pedido não encontrado');
-        return;
-    }
-
-    // Preenche máquina
-    const maquina = pedido.MAQUINAS;
-    inputMaquina.value = maquina;
 
     // Carrega produtos da máquina (usando REFERÊNCIAS/MÁQUINA)
     try {
@@ -438,16 +486,17 @@ async function adicionarPedido() {
         atualizarListaPedidos();
         atualizarStatsOtimizacao();
 
-        // Reseta form mas mantém carregado loadPedidosCadastrados
-        document.getElementById('inputCliente').value = '';
+        // Reseta form na ordem correta (Máquina primeiro)
+        document.getElementById('inputMaquinaPedido').value = '';
+        document.getElementById('inputCliente').innerHTML = '<option value="">Selecione máquina primeiro</option>';
+        document.getElementById('inputCliente').disabled = true;
         document.getElementById('inputOrdem').innerHTML = '<option value="">Selecione cliente primeiro</option>';
         document.getElementById('inputOrdem').disabled = true;
         document.getElementById('inputDataEntrega').innerHTML = '<option value="">Selecione ordem primeiro</option>';
         document.getElementById('inputDataEntrega').disabled = true;
-        document.getElementById('inputMaquinaPedido').value = '';
         document.getElementById('inputProduto').innerHTML = '<option value="">Selecione pedido completo primeiro</option>';
         document.getElementById('inputProduto').disabled = true;
-        document.getElementById('inputBocas').value = 1;
+        document.getElementById('inputBocas').value = '';
         document.getElementById('inputQuantidade').value = 1;
 
         alert('✅ Pedido adicionado! Total: ' + pedidosTemporarios.length);
