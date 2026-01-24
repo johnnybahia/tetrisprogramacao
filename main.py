@@ -19,6 +19,7 @@ from modules.calculator import ProductionCalculator, formatar_data_br
 from modules.optimizer import ProductionOptimizer
 from modules.workday_calendar import get_calendar
 from modules.dynamic_planner import get_planner
+from modules.machine_optimizer import get_machine_optimizer
 
 # ========================================
 # INICIALIZAÇÃO
@@ -105,6 +106,14 @@ class MoveOrderRequest(BaseModel):
 class SavePlanRequest(BaseModel):
     plan_name: str
     plan: Dict
+
+class OptimizeMachinesRequest(BaseModel):
+    orders: List[Dict]
+    start_date: Optional[str] = None
+
+class ApplySuggestionsRequest(BaseModel):
+    orders: List[Dict]
+    suggestions: List[Dict]
 
 # ========================================
 # ROTA PRINCIPAL - Serve o HTML
@@ -627,6 +636,53 @@ async def get_all_machines_availability():
     try:
         availability_dict = db_manager.get_all_machines_availability()
         return {"machines_availability": availability_dict}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ========================================
+# ROTAS DE OTIMIZAÇÃO DE MÁQUINAS
+# ========================================
+
+@app.post("/api/otimizacao/sugerir-maquinas")
+async def suggest_machine_optimization(request: OptimizeMachinesRequest):
+    """
+    Analisa pedidos e sugere melhor distribuição de máquinas
+    para minimizar atrasos e otimizar produção
+    """
+    try:
+        optimizer = get_machine_optimizer()
+
+        # Converte data se fornecida
+        start_date = None
+        if request.start_date:
+            try:
+                start_date = datetime.strptime(request.start_date, "%d/%m/%Y")
+            except:
+                start_date = datetime.strptime(request.start_date, "%Y-%m-%d")
+
+        result = optimizer.analyze_and_suggest(request.orders, start_date)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/otimizacao/aplicar-sugestoes")
+async def apply_machine_suggestions(request: ApplySuggestionsRequest):
+    """Aplica sugestões de otimização aos pedidos"""
+    try:
+        optimizer = get_machine_optimizer()
+        optimized_orders = optimizer.apply_suggestions(
+            request.orders,
+            request.suggestions
+        )
+
+        return {
+            "success": True,
+            "optimized_orders": optimized_orders,
+            "total_changed": sum(
+                1 for i, order in enumerate(optimized_orders)
+                if order.get('maquina') != request.orders[i].get('maquina')
+            )
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

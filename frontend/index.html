@@ -150,9 +150,21 @@
                 <div class="card" style="margin-top: 2rem;" id="cardPedidosTemp">
                     <h3>Pedidos Adicionados</h3>
                     <div id="listaPedidos"></div>
-                    <div style="margin-top: 1rem; display: flex; gap: 1rem;">
-                        <button class="btn btn-success" onclick="gerarPlanejamento()">📊 Gerar Planejamento</button>
+                    <div style="margin-top: 1rem; display: flex; gap: 1rem; flex-wrap: wrap;">
+                        <button class="btn btn-primary" onclick="otimizarMaquinas()">🤖 Otimizar Distribuição de Máquinas</button>
+                        <button class="btn btn-success" onclick="gerarPlanejamentoDinamico()">📊 Gerar Planejamento Dinâmico</button>
                         <button class="btn btn-secondary" onclick="limparPedidos()">🗑️ Limpar Lista</button>
+                    </div>
+                </div>
+
+                <!-- Sugestões de Otimização -->
+                <div class="card" style="margin-top: 2rem; display: none;" id="cardSugestoes">
+                    <h3>🤖 Sugestões de Otimização de Máquinas</h3>
+                    <div id="sugestoesStats" style="margin-bottom: 1rem;"></div>
+                    <div id="sugestoesLista"></div>
+                    <div style="margin-top: 1.5rem; display: flex; gap: 1rem;">
+                        <button class="btn btn-success" onclick="aplicarSugestoes()">✅ Aplicar Todas as Sugestões</button>
+                        <button class="btn btn-secondary" onclick="fecharSugestoes()">✖️ Ignorar</button>
                     </div>
                 </div>
             </div>

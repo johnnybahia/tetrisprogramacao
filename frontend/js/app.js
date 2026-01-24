@@ -1304,6 +1304,196 @@ async function carregarPlano() {
     }
 }
 
+// ========================================
+// OTIMIZAÇÃO DE MÁQUINAS
+// ========================================
+
+let sugestoesAtivas = null;
+
+// Otimiza distribuição de máquinas
+async function otimizarMaquinas() {
+    if (pedidosTemporarios.length === 0) {
+        alert('Adicione pedidos primeiro!');
+        return;
+    }
+
+    try {
+        const response = await fetch(API_URL + '/otimizacao/sugerir-maquinas', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                orders: pedidosTemporarios,
+                start_date: null
+            })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            sugestoesAtivas = result;
+            mostrarSugestoes(result);
+        } else {
+            alert('Erro ao otimizar: ' + (result.error || 'Erro desconhecido'));
+        }
+    } catch (error) {
+        console.error('Erro ao otimizar máquinas:', error);
+        alert('Erro ao otimizar máquinas');
+    }
+}
+
+// Mostra sugestões de otimização
+function mostrarSugestoes(result) {
+    const cardSugestoes = document.getElementById('cardSugestoes');
+    const statsContainer = document.getElementById('sugestoesStats');
+    const listaContainer = document.getElementById('sugestoesLista');
+
+    // Mostra card
+    cardSugestoes.style.display = 'block';
+
+    // Scroll suave até o card
+    cardSugestoes.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    // Estatísticas
+    const stats = result.statistics;
+    let statsHtml = '<div class="optimization-stats">';
+    statsHtml += `
+        <div class="opt-stat-card">
+            <div class="opt-stat-value">${stats.total_orders}</div>
+            <div class="opt-stat-label">Total de Pedidos</div>
+        </div>
+        <div class="opt-stat-card" style="background: linear-gradient(135deg, var(--danger), #dc2626);">
+            <div class="opt-stat-value">${stats.critical_changes}</div>
+            <div class="opt-stat-label">Mudanças Críticas</div>
+        </div>
+        <div class="opt-stat-card" style="background: linear-gradient(135deg, var(--warning), #ea580c);">
+            <div class="opt-stat-value">${stats.improvements}</div>
+            <div class="opt-stat-label">Melhorias Possíveis</div>
+        </div>
+        <div class="opt-stat-card" style="background: linear-gradient(135deg, var(--success), #059669);">
+            <div class="opt-stat-value">${stats.efficiency_gain}%</div>
+            <div class="opt-stat-label">Ganho de Eficiência</div>
+        </div>
+    `;
+    statsHtml += '</div>';
+    statsContainer.innerHTML = statsHtml;
+
+    // Lista de sugestões
+    let listaHtml = '';
+
+    result.suggestions.forEach((suggestion, index) => {
+        const order = suggestion.order;
+        const statusClass = suggestion.status;
+        const statusText = {
+            'critical': 'CRÍTICO',
+            'improve': 'MELHORIA',
+            'keep': 'MANTER'
+        }[statusClass] || 'INFO';
+
+        listaHtml += `
+            <div class="suggestion-card ${statusClass}">
+                <div class="suggestion-header">
+                    <div class="suggestion-title">
+                        ${order.cliente} - ${order.produto}
+                        <div style="font-size: 0.85rem; font-weight: 400; color: #64748b; margin-top: 0.25rem;">
+                            ${order.quantidade} peças | Entrega: ${order.data_entrega}
+                        </div>
+                    </div>
+                    <div class="suggestion-status ${statusClass}">${statusText}</div>
+                </div>
+
+                <div class="suggestion-machines">
+                    <div class="machine-box">
+                        <div class="machine-label">Máquina Atual</div>
+                        <div class="machine-name">${suggestion.current_machine || 'Não definida'}</div>
+                    </div>
+                    <div class="machine-arrow">→</div>
+                    <div class="machine-box" style="background: ${suggestion.current_machine === suggestion.suggested_machine ? '#f0fdf4' : '#fffbeb'};">
+                        <div class="machine-label">Máquina Sugerida</div>
+                        <div class="machine-name">${suggestion.suggested_machine}</div>
+                    </div>
+                </div>
+
+                <div class="suggestion-reason">
+                    <strong>Motivo:</strong> ${suggestion.reason}
+                </div>
+
+                ${suggestion.time_improvement && suggestion.time_improvement.has_improvement ? `
+                    <div style="margin-top: 0.75rem; padding: 0.5rem; background: #f0fdf4; border-radius: 6px; font-size: 0.9rem;">
+                        💡 <strong>Economia de tempo:</strong> ${suggestion.time_improvement.time_saved_hours}h (${suggestion.time_improvement.percentage}%)
+                    </div>
+                ` : ''}
+
+                ${suggestion.options && suggestion.options.length > 0 ? `
+                    <details style="margin-top: 1rem;">
+                        <summary style="cursor: pointer; font-weight: 600; color: var(--primary);">
+                            Ver todas as opções (${suggestion.options.length})
+                        </summary>
+                        <div class="suggestion-options">
+                            ${suggestion.options.map(opt => `
+                                <div class="option-item ${opt.is_current ? 'current' : ''} ${opt.is_suggested ? 'suggested' : ''}">
+                                    <div class="option-machine">${opt.maquina}</div>
+                                    <div class="option-time">${opt.tempo_total_horas}h ${opt.viavel ? '✅' : '⚠️'}</div>
+                                    ${opt.is_current ? '<span class="option-badge current">ATUAL</span>' : ''}
+                                    ${opt.is_suggested ? '<span class="option-badge suggested">SUGERIDA</span>' : ''}
+                                </div>
+                            `).join('')}
+                        </div>
+                    </details>
+                ` : ''}
+            </div>
+        `;
+    });
+
+    listaContainer.innerHTML = listaHtml || '<p class="info-text">Nenhuma sugestão disponível</p>';
+}
+
+// Aplica sugestões de otimização
+async function aplicarSugestoes() {
+    if (!sugestoesAtivas) {
+        alert('Nenhuma sugestão para aplicar');
+        return;
+    }
+
+    if (!confirm(`Deseja aplicar as ${sugestoesAtivas.statistics.total_changes_suggested} mudanças sugeridas?`)) {
+        return;
+    }
+
+    try {
+        const response = await fetch(API_URL + '/otimizacao/aplicar-sugestoes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                orders: pedidosTemporarios,
+                suggestions: sugestoesAtivas.suggestions
+            })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            // Atualiza pedidos temporários com otimizações
+            pedidosTemporarios = result.optimized_orders;
+
+            // Atualiza lista
+            atualizarListaPedidos();
+
+            alert(`✅ ${result.total_changed} pedido(s) otimizado(s) com sucesso!`);
+
+            // Fecha sugestões
+            fecharSugestoes();
+        }
+    } catch (error) {
+        console.error('Erro ao aplicar sugestões:', error);
+        alert('Erro ao aplicar sugestões');
+    }
+}
+
+// Fecha card de sugestões
+function fecharSugestoes() {
+    document.getElementById('cardSugestoes').style.display = 'none';
+    sugestoesAtivas = null;
+}
+
 // Inicializa calendário quando a página for mostrada
 document.addEventListener('DOMContentLoaded', () => {
     // Carrega resumo do calendário ao carregar a página
